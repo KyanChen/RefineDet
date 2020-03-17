@@ -1,0 +1,293 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ChangeListManager">
+    <list default="true" id="573344a7-09d8-4ee2-9c15-69bda8e25cf4" name="Default Changelist" comment="">
+      <change beforePath="$PROJECT_DIR$/Config.py" beforeDir="false" afterPath="$PROJECT_DIR$/Config.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Train_RefineDet.py" beforeDir="false" afterPath="$PROJECT_DIR$/Train_RefineDet.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/nets/RefineDet.py" beforeDir="false" afterPath="$PROJECT_DIR$/nets/RefineDet.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/nets/layers/RefineMultiBoxLoss.py" beforeDir="false" afterPath="$PROJECT_DIR$/nets/layers/RefineMultiBoxLoss.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tools/GetMinMaxSizesPara.py" beforeDir="false" afterPath="$PROJECT_DIR$/tools/GetMinMaxSizesPara.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tools/generate_dep_info/mean_std_info.json" beforeDir="false" afterPath="$PROJECT_DIR$/tools/generate_dep_info/mean_std_info.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tools/generate_dep_info/model_info.json" beforeDir="false" afterPath="$PROJECT_DIR$/tools/generate_dep_info/model_info.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tools/generate_dep_info/test.csv" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tools/generate_dep_info/train.csv" beforeDir="false" afterPath="$PROJECT_DIR$/tools/generate_dep_info/train.csv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/utils/BoxUtils.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils/BoxUtils.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/utils/ImageTools.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils/ImageTools.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/utils/SSDDataset.py" beforeDir="false" afterPath="$PROJECT_DIR$/utils/SSDDataset.py" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="DatabaseView">
+    <option name="SHOW_INTERMEDIATE" value="true" />
+    <option name="GROUP_DATA_SOURCES" value="true" />
+    <option name="GROUP_SCHEMA" value="true" />
+    <option name="GROUP_CONTENTS" value="false" />
+    <option name="SORT_POSITIONED" value="false" />
+    <option name="SHOW_EMPTY_GROUPS" value="false" />
+    <option name="AUTO_SCROLL_FROM_SOURCE" value="false" />
+    <option name="HIDDEN_KINDS">
+      <set />
+    </option>
+    <expand />
+    <select />
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="ProjectId" id="1XnyfDImDSaboQmSIaKSY6UM10K" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showExcludedFiles" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent">
+    <property name="RunOnceActivity.ShowReadmeOnStart" value="true" />
+    <property name="WebServerToolWindowFactoryState" value="false" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$/../TailMineDetection_RefineDet" />
+    <property name="node.js.detected.package.eslint" value="true" />
+    <property name="node.js.detected.package.tslint" value="true" />
+    <property name="node.js.path.for.package.eslint" value="project" />
+    <property name="node.js.path.for.package.tslint" value="project" />
+    <property name="node.js.selected.package.eslint" value="(autodetect)" />
+    <property name="node.js.selected.package.tslint" value="(autodetect)" />
+    <property name="restartRequiresConfirmation" value="false" />
+    <property name="settings.editor.selected.configurable" value="com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable" />
+  </component>
+  <component name="RunManager" selected="Python.Train_RefineDet">
+    <configuration name="GetImgMeanStd" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="RefineDet" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/tools" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/tools/GetImgMeanStd.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="GetMinMaxSizesPara" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="RefineDet" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/tools" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/tools/GetMinMaxSizesPara.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="GetTrainTestCSV" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="RefineDet" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/tools" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/tools/GetTrainTestCSV.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="RefineDet" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="RefineDet" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/nets" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/nets/RefineDet.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <configuration name="Train_RefineDet" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="RefineDet" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/Train_RefineDet.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <recent_temporary>
+      <list>
+        <item itemvalue="Python.Train_RefineDet" />
+        <item itemvalue="Python.GetTrainTestCSV" />
+        <item itemvalue="Python.GetImgMeanStd" />
+        <item itemvalue="Python.GetMinMaxSizesPara" />
+        <item itemvalue="Python.RefineDet" />
+      </list>
+    </recent_temporary>
+  </component>
+  <component name="SvnConfiguration">
+    <configuration />
+  </component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="573344a7-09d8-4ee2-9c15-69bda8e25cf4" name="Default Changelist" comment="" />
+      <created>1581696253486</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1581696253486</updated>
+      <workItem from="1581696269826" duration="28620000" />
+      <workItem from="1581933197594" duration="22797000" />
+      <workItem from="1583472087627" duration="866000" />
+      <workItem from="1584008919472" duration="35057000" />
+      <workItem from="1584333865160" duration="1951000" />
+      <workItem from="1584336767691" duration="40207000" />
+    </task>
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="1" />
+  </component>
+  <component name="WindowStateProjectService">
+    <state x="690" y="218" key="FileChooserDialogImpl" timestamp="1584427533611">
+      <screen x="0" y="0" width="1920" height="1040" />
+    </state>
+    <state x="690" y="218" key="FileChooserDialogImpl/0.0.1920.1040/1920.0.1440.860@0.0.1920.1040" timestamp="1584427533611" />
+    <state width="1867" height="444" key="GridCell.Tab.0.bottom" timestamp="1584427534912">
+      <screen x="0" y="0" width="1920" height="1040" />
+    </state>
+    <state width="1867" height="444" key="GridCell.Tab.0.bottom/0.0.1920.1040/1920.0.1440.860@0.0.1920.1040" timestamp="1584427534912" />
+    <state width="1867" height="444" key="GridCell.Tab.0.center" timestamp="1584427534912">
+      <screen x="0" y="0" width="1920" height="1040" />
+    </state>
+    <state width="1867" height="444" key="GridCell.Tab.0.center/0.0.1920.1040/1920.0.1440.860@0.0.1920.1040" timestamp="1584427534912" />
+    <state width="1867" height="444" key="GridCell.Tab.0.left" timestamp="1584427534912">
+      <screen x="0" y="0" width="1920" height="1040" />
+    </state>
+    <state width="1867" height="444" key="GridCell.Tab.0.left/0.0.1920.1040/1920.0.1440.860@0.0.1920.1040" timestamp="1584427534912" />
+    <state width="1867" height="444" key="GridCell.Tab.0.right" timestamp="1584427534912">
+      <screen x="0" y="0" width="1920" height="1040" />
+    </state>
+    <state width="1867" height="444" key="GridCell.Tab.0.right/0.0.1920.1040/1920.0.1440.860@0.0.1920.1040" timestamp="1584427534912" />
+    <state width="1867" height="444" key="GridCell.Tab.1.bottom" timestamp="1584427534912">
+      <screen x="0" y="0" width="1920" height="1040" />
+    </state>
+    <state width="1867" height="444" key="GridCell.Tab.1.bottom/0.0.1920.1040/1920.0.1440.860@0.0.1920.1040" timestamp="1584427534912" />
+    <state width="1867" height="444" key="GridCell.Tab.1.center" timestamp="1584427534912">
+      <screen x="0" y="0" width="1920" height="1040" />
+    </state>
+    <state width="1867" height="444" key="GridCell.Tab.1.center/0.0.1920.1040/1920.0.1440.860@0.0.1920.1040" timestamp="1584427534912" />
+    <state width="1867" height="444" key="GridCell.Tab.1.left" timestamp="1584427534912">
+      <screen x="0" y="0" width="1920" height="1040" />
+    </state>
+    <state width="1867" height="444" key="GridCell.Tab.1.left/0.0.1920.1040/1920.0.1440.860@0.0.1920.1040" timestamp="1584427534912" />
+    <state width="1867" height="444" key="GridCell.Tab.1.right" timestamp="1584427534912">
+      <screen x="0" y="0" width="1920" height="1040" />
+    </state>
+    <state width="1867" height="444" key="GridCell.Tab.1.right/0.0.1920.1040/1920.0.1440.860@0.0.1920.1040" timestamp="1584427534912" />
+    <state x="461" y="151" key="SettingsEditor" timestamp="1584008985377">
+      <screen x="0" y="0" width="1920" height="1040" />
+    </state>
+    <state x="461" y="151" key="SettingsEditor/0.0.1920.1040/1920.0.1440.860@0.0.1920.1040" timestamp="1584008985377" />
+    <state x="452" y="188" key="Vcs.Push.Dialog.v2" timestamp="1582024881599">
+      <screen x="0" y="0" width="1920" height="1040" />
+    </state>
+    <state x="452" y="188" key="Vcs.Push.Dialog.v2/0.0.1920.1040/1920.0.1440.860@0.0.1920.1040" timestamp="1582024881599" />
+    <state width="968" height="528" key="XDebugger.FullValuePopup" timestamp="1584334798685">
+      <screen x="0" y="0" width="1920" height="1040" />
+    </state>
+    <state width="968" height="528" key="XDebugger.FullValuePopup/0.0.1920.1040/1920.0.1440.860@0.0.1920.1040" timestamp="1584334798685" />
+    <state x="577" y="303" key="com.intellij.ide.util.TipDialog" timestamp="1584336773025">
+      <screen x="0" y="0" width="1920" height="1040" />
+    </state>
+    <state x="577" y="303" key="com.intellij.ide.util.TipDialog/0.0.1920.1040/1920.0.1440.860@0.0.1920.1040" timestamp="1584336773025" />
+    <state x="539" y="5" key="search.everywhere.popup" timestamp="1582024846037">
+      <screen x="0" y="0" width="1920" height="1040" />
+    </state>
+    <state x="539" y="5" key="search.everywhere.popup/0.0.1920.1040/1920.0.1440.860@0.0.1920.1040" timestamp="1582024846037" />
+  </component>
+  <component name="XDebuggerManager">
+    <breakpoint-manager>
+      <breakpoints>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/Train_RefineDet.py</url>
+          <line>223</line>
+          <option name="timeStamp" value="34" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://E:/ProgramData/Anaconda3/envs/pytorch_latest/Lib/multiprocessing/context.py</url>
+          <line>101</line>
+          <option name="timeStamp" value="40" />
+        </line-breakpoint>
+      </breakpoints>
+    </breakpoint-manager>
+    <watches-manager>
+      <configuration name="PythonConfigurationType">
+        <watch expression="self" />
+        <watch expression="priors" />
+      </configuration>
+    </watches-manager>
+  </component>
+  <component name="com.intellij.coverage.CoverageDataManagerImpl">
+    <SUITE FILE_PATH="coverage/RefineDet$RefineMultiBoxLoss.coverage" NAME="RefineMultiBoxLoss Coverage Results" MODIFIED="1581751987738" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/nets/layers" />
+    <SUITE FILE_PATH="coverage/RefineDet$Train_RefineDet.coverage" NAME="Train_RefineDet Coverage Results" MODIFIED="1584422600723" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/RefineDet$DivideSamples.coverage" NAME="DivideSamples Coverage Results" MODIFIED="1581931833253" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/../Tools/DivideSamples" />
+    <SUITE FILE_PATH="coverage/RefineDet$GetMinMaxSizesPara.coverage" NAME="GetMinMaxSizesPara Coverage Results" MODIFIED="1584335421993" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tools" />
+    <SUITE FILE_PATH="coverage/RefineDet$Config.coverage" NAME="Config Coverage Results" MODIFIED="1582259070508" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/RefineDet$GetTrainTestCSV.coverage" NAME="GetTrainTestCSV Coverage Results" MODIFIED="1584412757226" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tools" />
+    <SUITE FILE_PATH="coverage/RefineDet$SSDDataset.coverage" NAME="SSDDataset Coverage Results" MODIFIED="1583214708928" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/utils" />
+    <SUITE FILE_PATH="coverage/RefineDet$RefineDet.coverage" NAME="RefineDet Coverage Results" MODIFIED="1584283604317" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/nets" />
+    <SUITE FILE_PATH="coverage/RefineDet$GetImgMeanStd.coverage" NAME="GetImgMeanStd Coverage Results" MODIFIED="1584364579785" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/tools" />
+  </component>
+</project>
