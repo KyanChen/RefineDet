@@ -25,7 +25,7 @@ class SSDDataset(data.Dataset):
         self.transform = transform
         data_file = os.path.abspath(r'tools/generate_dep_info/train.csv')
         assert os.path.exists(data_file), data_file + ' dose not exist!'
-        if self.pattern is 'test' and os.path.exists(r'generate_dep_info/test.csv'):
+        if self.pattern is 'test' and os.path.exists(r'tools/generate_dep_info/test.csv'):
             data_file = r'tools/generate_dep_info/test.csv'
 
         self.data_info = pd.read_csv(data_file, index_col=0)
@@ -46,6 +46,7 @@ class SSDDataset(data.Dataset):
         :param txt_name: [class_ID, left, right, top, bottom]
         :param mode: 0 : 2 267 -131 495 97
                      1 : (399, 20),(478, 82),4
+                     2 : single wrong class 0 1 3 6
         :return:
         if no target []
         if target return [[class_ID, left, right, top, bottom],[]]
@@ -57,9 +58,12 @@ class SSDDataset(data.Dataset):
                 while line:
                     if mode == 0:
                         line = line.split()
-                    if mode == 1:
+                    elif mode == 1:
                         line = line.replace(',', ' ').replace('(', ' ').replace(')', ' ').split()
                         line.insert(0, line.pop())
+                    elif mode == 2:
+                        line = line.split()[-4:]
+                        line = [Config.CLASSES[1]] + line
 
                     if len(line) == 5:
                         class_, left, top, right, bottom = line
@@ -95,6 +99,7 @@ class SSDDataset(data.Dataset):
         data = self.data_info.iloc[index]
         img_name = data['img']
         txt_name = data['label']
+        # print(img_name)
         # 3 channels
         img_src = cv2.imread(img_name, cv2.IMREAD_COLOR)
         # img_src = cv2.imdecode(np.fromfile(img_name), cv2.IMREAD_COLOR)
@@ -103,7 +108,7 @@ class SSDDataset(data.Dataset):
         img = img_src.copy()
 
         height, width, channels = img_src.shape
-        bboxs_src = self.txt_paraser(txt_name, width, height, mode=1)
+        bboxs_src = self.txt_paraser(txt_name, width, height, mode=Config.ANNO_MODEL)
         bboxs = bboxs_src.copy()
 
         if self.transform is not None:
@@ -172,11 +177,13 @@ class SSDDataset(data.Dataset):
 
 if __name__ == '__main__':
     dataset = SSDDataset(pattern='train', transform=SSDAugmentations())
-    img, gt, img_src, img_name, bboxes_src = dataset.pull_item(1)
-    print(img.shape)
-    gt = get_absolute_bboxes(gt, img.shape[1:], (512, 512))
-    img_ = draw_bboxes(img.permute(1, 2, 0)[:, :, (2, 1, 0)], gt)
-    plt.imshow(img_)
-    plt.show()
+    for i in range(1):
+        img, gt, img_src, img_name, bboxes_src = dataset.pull_item(0)
+        print(img.shape)
+        gt = get_absolute_bboxes(gt, img.shape[1:], (512, 512))
+        img_ = draw_bboxes(img.permute(1, 2, 0)[:, :, (0, 1, 2)], gt)
+        cv2.imwrite('%s.jpg' % i, img_)
+        plt.imshow(img_)
+        plt.show()
 
 

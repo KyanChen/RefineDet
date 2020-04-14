@@ -40,7 +40,7 @@ def iou(box_a, box_b):
     # 把面积的shape扩展为inter一样的（N，M)
     area_a = area_a.unsqueeze(1).expand_as(intersection)
     area_b = area_b.unsqueeze(0).expand_as(intersection)
-    iou = intersection / (area_a + area_b - intersection)
+    iou = intersection / (area_a + area_b - intersection + 1e-10)
 
     return iou
 
@@ -58,7 +58,7 @@ def encode(matched, priors, variances):
     # shape [M,2]
     encode_delta_cxcy = (g_center - priors[:, :2]) / (priors[:, 2:] * variances[0])
     # 防止出现log出现负数，从而使loss为 nan
-    eps = 1e-6
+    eps = 1e-7
     g_wh = matched[:, 2:] - matched[:, :2]
     # shape[M,2]
     encode_delta_wh = torch.log(g_wh / priors[:, 2:] + eps) / variances[1]
@@ -95,21 +95,27 @@ def refine_match(threshold, truths, priors, variances, labels, encode_loc, encod
             The matched indices corresponding to 1)location and 2)confidence preds.
         """
     if arm_loc is None:
-        overlaps = iou(truths, priors)
+        overlaps = iou(truths, centerToPoints(priors))
     else:
         decode_arm = decode(arm_loc, priors=priors, variances=variances)
         overlaps = iou(truths, decode_arm)
 
     # [1,num_objects] 和每个ground truth box 交集最大的 prior box, 输出为N
-    best_prior_overlap, best_prior_index = overlaps.max(1)
+    # best_prior_overlap, best_prior_index = overlaps.max(1)
+    best_prior_overlap, best_prior_index = overlaps.max(1, keepdim=True)
     # [1,num_priors] 和每个prior box 交集最大的 ground truth box， 输出为M
-    best_truth_overlap, best_truth_index = overlaps.max(0)
+    # best_truth_overlap, best_truth_index = overlaps.max(0)
+    best_truth_overlap, best_truth_index = overlaps.max(0, keepdim=True)
+    best_truth_index.squeeze_(0)
+    best_truth_overlap.squeeze_(0)
+    best_prior_index.squeeze_(1)
+    best_prior_overlap.squeeze_(1)
     # 1,保证每个ground truth box 与某一个prior box 匹配，固定值为 2 > threshold
     best_truth_overlap.index_fill_(0, best_prior_index, 2)
     # 2,保证每一个ground truth 匹配它的都是具有最大IOU的prior
     # 根据 best_prior_dix 锁定 best_truth_idx里面的最大IOU prior
-    for i in range(len(best_prior_index)):
-        best_truth_index[best_prior_index[i]] = i
+    for j in range(best_prior_index.size(0)):
+        best_truth_index[best_prior_index[j]] = j
 
     # 提取出所有匹配的ground truth box, Shape: [num_priors,4]
     mathes = truths[best_truth_index]
@@ -143,8 +149,9 @@ def log_sum_exp(x):
 if __name__ == '__main__':
     threshold = 0.5
     truths = torch.Tensor([[2, 4, 5, 6], [0, 0, 3, 6]])
+    truths = torch.Tensor([[0, 0, 0, 0]])
     arm_loc = torch.Tensor([[0.1, 0.1, -0.01, -0.02], [0.1, 0.2, -0.02, -0.02], [0.3, 0.1, -0.03, -0.01]])
     priors = torch.Tensor([[2, 4, 7, 9], [2, 5, 7, 10], [0, 2, 5, 10]])
     variances = [1, 1]
-    labels = torch.Tensor([1, 2])
-    refine_match(threshold, truths, priors, variances, labels, None, None, 1,arm_loc)
+    labels = torch.Tensor([0])
+    refine_match(threshold, truths, priors, variances, labels, None, None, 1, arm_loc)

@@ -47,8 +47,9 @@ def draw_bboxes(img, bboxes):
                 cv2.putText(img, text='%s' % Config.CLASSES[bbox_coordinate[0]],
                             org=tuple(bbox_coordinate[1:3] - np.array([1, 8])), fontFace=cv2.FONT_HERSHEY_SIMPLEX,
                             fontScale=0.5, color=(255, 255, 255), thickness=2)
-            cv2.rectangle(img, pt1=tuple(bbox_coordinate[1:3]), pt2=tuple(bbox_coordinate[3:5]), color=(255, 0, 0), thickness=2)
+            cv2.rectangle(img, pt1=tuple(bbox_coordinate[1:3]), pt2=tuple(bbox_coordinate[3:5]), color=(0, 0, 255), thickness=2)
     except TypeError:
+        print("IamgeTools, bboxes TypeError")
         print(bboxes)
     return img
 

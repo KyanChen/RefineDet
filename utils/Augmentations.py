@@ -1,5 +1,6 @@
 import numpy as np
 import cv2
+from math import ceil, floor
 
 import Config
 
@@ -85,7 +86,9 @@ class ToRelativeCoords(object):
     Convert bboxes from absolute to relative coords
     """
     def __call__(self, img, bboxes=None, labels=None):
-        if len(bboxes) > 0:
+        if None is bboxes:
+            return img, bboxes, labels
+        if len(bboxes):
             height, width, channels = img.shape
             bboxes[:, ::2] /= width
             bboxes[:, 1::2] /= height
@@ -315,7 +318,7 @@ class RandomSampleCrop(object):
         boxes (Tensor): the adjusted bounding boxes in pt form
         labels (Tensor): the class labels for each bbox
     """
-    def __init__(self, prob=0.5):
+    def __init__(self, prob=0.5, ratios=[0.8, 1.2]):
         self.prob = prob
         self.sample_options = [
             # sample a patch s.t. MIN jaccard w/ obj in .1,.3,.4,.7,.9
@@ -325,98 +328,116 @@ class RandomSampleCrop(object):
             [0.9, None],
             # randomly sample a patch
             [None, None]]
+        self.ratios = np.array(ratios)
 
     def __call__(self, img, bboxes=None, labels=None):
+        ratios = self.ratios.copy()
         # 需要调整两处的crop的w,h
         height, width, _ = img.shape
         if len(bboxes) is 0:
             if np.random.random() < self.prob and Config.IS_SRC_IMG_SIZE_NEAR_NET_SIZE:
                 return img, bboxes, labels
             while True:
-                # generate w and h
-                w = np.random.uniform(0.8 * Config.INPUT_SIZE[0], min(width, 1.5 * Config.INPUT_SIZE[0]))
-                h = np.random.uniform(0.8 * Config.INPUT_SIZE[1], min(height, 1.5 * Config.INPUT_SIZE[1]))
-                # aspect ratio constraint b/t .5 & 2
-                if h / w < 8./10 or h / w > 10./8:
-                    continue
-                left = np.random.uniform(width - w)
-                top = np.random.uniform(height - h)
-                # convert to integer rect x1,y1,x2,y2
-                rect = np.array([int(left), int(top), int(left + w), int(top + h)])
-                img = img[rect[1]:rect[3], rect[0]:rect[2], :]
-                return img, bboxes, labels
-        while True:
-            if np.random.random() < self.prob and Config.IS_SRC_IMG_SIZE_NEAR_NET_SIZE:
-                return img, bboxes, labels
-            # randomly choose a mode
-            mode = self.sample_options[np.random.randint(5)]
-
-            min_iou, max_iou = mode
-            if min_iou is None:
-                min_iou = float('-inf')
-            if max_iou is None:
-                max_iou = float('inf')
-
-            # max trails (50)
-            for _ in range(50):
-                current_img = img
-
-                # generate w and h
-                w = np.random.uniform(0.8 * Config.INPUT_SIZE[0], min(width, 1.5 * Config.INPUT_SIZE[0]))
-                h = np.random.uniform(0.8 * Config.INPUT_SIZE[1], min(height, 1.5 * Config.INPUT_SIZE[1]))
+                w = np.random.uniform(min(width - 1, ratios[0] * Config.INPUT_SIZE[0]),
+                                      min(width, ratios[1] * Config.INPUT_SIZE[0]))
+                h = np.random.uniform(min(height - 1, ratios[0] * Config.INPUT_SIZE[1]),
+                                      min(height, ratios[1] * Config.INPUT_SIZE[1]))
                 # aspect ratio constraint b/t .5 & 2
                 if h / w < 8. / 10 or h / w > 10. / 8:
-                    continue
-
-                left = np.random.uniform(width - w)
-                top = np.random.uniform(height - h)
+                    if not width / height < 8. / 10 or width / height > 10. / 8:
+                        continue
+                left = np.random.uniform(0, width - w)
+                top = np.random.uniform(0, height - h)
 
                 # convert to integer rect x1,y1,x2,y2
-                rect = np.array([int(left), int(top), int(left+w), int(top+h)])
+                rect = np.array(
+                    [max(0, int(left)), max(0, int(top)), min(width - 1, int(left + w)), min(height - 1, int(top + h))])
+                img = img[rect[1]:rect[3], rect[0]:rect[2], :]
+                return img, bboxes, labels
+        if Config.IS_BBOX_SCALE_VARY_MUCH:
+            bboxes_max_width = max(bboxes[:, 2] - bboxes[:, 0])
+            bboxes_max_height = min(bboxes[:, 3] - bboxes[:, 1])
 
-                # calculate IoU (jaccard overlap) b/t the cropped and gt boxes
-                overlap = jaccard_numpy(bboxes, rect)
+            max_width_ratio = bboxes_max_width / Config.INPUT_SIZE[0]
+            max_height_ratio = bboxes_max_height / Config.INPUT_SIZE[1]
+            max_ratio = max(max_width_ratio, max_height_ratio)
+            if max_ratio > 1:
+                ratios *= max_ratio
+            # if max_ratio < 0.3:
+                # ratios *= 0.8
+        for _ in range(6):
+            for _ in range(40):
+                if np.random.random() < self.prob and Config.IS_SRC_IMG_SIZE_NEAR_NET_SIZE:
+                    return img, bboxes, labels
+                # randomly choose a mode
+                mode = self.sample_options[np.random.randint(0, 5)]
 
-                # is min and max overlap constraint satisfied? if not try again
-                if overlap.min() < min_iou and max_iou < overlap.max():
-                    print("1")
-                    continue
+                min_iou, max_iou = mode
+                if min_iou is None:
+                    min_iou = float('-inf')
+                if max_iou is None:
+                    max_iou = float('inf')
 
-                # cut the crop from the image
-                current_img = current_img[rect[1]:rect[3], rect[0]:rect[2], :]
+                # max trails (50)
+                for _ in range(150):
+                    current_img = img
+                    # generate w and h
+                    w = np.random.uniform(min(width-1, ratios[0] * Config.INPUT_SIZE[0]), min(width, ratios[1] * Config.INPUT_SIZE[0]))
+                    h = np.random.uniform(min(height-1, ratios[0] * Config.INPUT_SIZE[1]), min(height, ratios[1] * Config.INPUT_SIZE[1]))
+                    # aspect ratio constraint b/t .5 & 2
+                    if h / w < 7. / 10 or h / w > 10. / 7:
+                        if not width / height < 7. / 10 or width / height > 10. / 7:
+                            continue
+                    left = np.random.uniform(0, width - w)
+                    top = np.random.uniform(0, height - h)
 
-                # keep overlap with gt box IF center in sampled patch
-                centers = (bboxes[:, :2] + bboxes[:, 2:]) / 2.0
+                    # convert to integer rect x1,y1,x2,y2
+                    rect = np.array([max(0, int(left)), max(0, int(top)), min(width-1, int(left+w)), min(height-1, int(top+h))])
 
-                # mask in all gt boxes that above and to the left of centers
-                m1 = (rect[0] < centers[:, 0]) * (rect[1] < centers[:, 1])
+                    # calculate IoU (jaccard overlap) b/t the cropped and gt boxes
+                    overlap = jaccard_numpy(bboxes, rect)
 
-                # mask in all gt boxes that under and to the right of centers
-                m2 = (rect[2] > centers[:, 0]) * (rect[3] > centers[:, 1])
+                    # is min and max overlap constraint satisfied? if not try again
+                    if overlap.min() < min_iou and max_iou > overlap.max():
+                        continue
 
-                # mask in that both m1 and m2 are true
-                mask = m1 * m2
+                    # cut the crop from the image
+                    current_img = current_img[rect[1]:rect[3], rect[0]:rect[2], :]
 
-                # have any valid boxes? try again if not
-                if not mask.any():
-                    continue
+                    # keep overlap with gt box IF center in sampled patch
+                    centers = (bboxes[:, :2] + bboxes[:, 2:]) / 2.0
 
-                # take only matching gt boxes
-                current_boxes = bboxes[mask, :].copy()
+                    # mask in all gt boxes that above and to the left of centers
+                    m1 = (rect[0] < centers[:, 0]) * (rect[1] < centers[:, 1])
 
-                # take only matching gt labels
-                current_labels = labels[mask]
+                    # mask in all gt boxes that under and to the right of centers
+                    m2 = (rect[2] > centers[:, 0]) * (rect[3] > centers[:, 1])
 
-                # should we use the box left and top corner or the crop's
-                current_boxes[:, :2] = np.maximum(current_boxes[:, :2], rect[:2])
-                # adjust to crop (by substracting crop's left,top)
-                current_boxes[:, :2] -= rect[:2]
+                    # mask in that both m1 and m2 are true
+                    mask = m1 * m2
 
-                current_boxes[:, 2:] = np.minimum(current_boxes[:, 2:], rect[2:])
-                # adjust to crop (by substracting crop's left,top)
-                current_boxes[:, 2:] -= rect[:2]
+                    # have any valid boxes? try again if not
+                    if not mask.any():
+                        continue
 
-                return current_img, current_boxes, current_labels
+                    # take only matching gt boxes
+                    current_boxes = bboxes[mask, :].copy()
+
+                    # take only matching gt labels
+                    current_labels = labels[mask]
+
+                    # should we use the box left and top corner or the crop's
+                    current_boxes[:, :2] = np.maximum(current_boxes[:, :2], rect[:2])
+                    # adjust to crop (by substracting crop's left,top)
+                    current_boxes[:, :2] -= rect[:2]
+
+                    current_boxes[:, 2:] = np.minimum(current_boxes[:, 2:], rect[2:])
+                    # adjust to crop (by substracting crop's left,top)
+                    current_boxes[:, 2:] -= rect[:2]
+
+                    return current_img, current_boxes, current_labels
+            ratios *= 1.2
+        return img, bboxes, labels
 
 
 class RandomMirror(object):
@@ -439,8 +460,11 @@ class Resize(object):
 
     def __call__(self, img, bboxes=None, labels=None):
         height, width, _ = img.shape
+
         image = cv2.resize(img, self.size)
-        if bboxes.size is not 0:
+        if bboxes is None:
+            return image, bboxes, labels
+        if len(bboxes):
             bboxes[:, ::2] = bboxes[:, ::2] / width * self.size[0]
             bboxes[:, 1::2] = bboxes[:, 1::2] / height * self.size[1]
         return image, bboxes, labels
@@ -463,8 +487,8 @@ class SSDAugmentations(object):
         self.augment = {'train': Compose([
             ConvertUcharToFloat(),
             ImgDistortion(),
-            ExpandImg(self.prior_mean_std),
-            RandomSampleCrop(),
+            # ExpandImg(self.prior_mean_std),
+            # RandomSampleCrop(ratios=[0.8, 1.3]),
             RandomMirror(),
             Resize(self.size),
             ToRelativeCoords(),
@@ -472,6 +496,7 @@ class SSDAugmentations(object):
             # ToAbsoluteCoords()
         ]), 'test': Compose([
             ConvertUcharToFloat(),
+            # RandomSampleCrop(ratios=[0.8, 1.2]),
             Resize(self.size),
             Normalize(self.prior_mean_std),
             ToRelativeCoords(),

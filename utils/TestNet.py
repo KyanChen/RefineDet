@@ -65,7 +65,7 @@ def test_batch(output, priors, is_refine=True):
             obj_index_each_class = class_id == obj
             boxes_single_to_nms = boxes_single[obj_index_each_class]
             scores_single_to_nms = scores_single[obj_index_each_class]
-            reserve_index = nms(boxes_single_to_nms, scores_single_to_nms)
+            reserve_index = nms(boxes_single_to_nms, scores_single_to_nms, threshold=0.4)
             predict_single += [np.concatenate((scores_single_to_nms[reserve_index].reshape(-1, 1),
                                                obj.repeat(len(reserve_index)).reshape(-1, 1),
                                                boxes_single_to_nms[reserve_index].reshape(-1, 4)), axis=1)]
@@ -74,7 +74,7 @@ def test_batch(output, priors, is_refine=True):
     return predictions
 
 
-def nms(boxes, scores, threshold=0.6, top_k=200):
+def nms(boxes, scores, threshold=0.5, top_k=200):
     '''
     :param boxes: shape: [numpriors, 4]
     :param scores: [numpriors, classes]

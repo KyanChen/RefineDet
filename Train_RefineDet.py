@@ -38,7 +38,6 @@ if not os.path.exists(op.join(Config.RESULTS_LOG_PATH, 'test')):
 
 if Config.IS_TENSORBOARDX:
     writer = SummaryWriter(op.join(Config.RESULTS_LOG_PATH, 'log'))
-
 net = build_refinedet(Config.INPUT_SIZE, len(Config.CLASSES), True)
 if torch.cuda.device_count() > 1:  # 判断是不是有多个GPU
     print("Let's use", torch.cuda.device_count(), "GPUs!")
@@ -133,14 +132,14 @@ else:
 
 selected_optimizers = ['SGD', 'Adam', 'RMSprop']
 optimizers = [
-    torch.optim.SGD(net.parameters(), lr=Config.LR, momentum=Config.MOMENTUM, weight_decay=Config.WEIGHT_DECAY),
-    torch.optim.Adam(net.parameters(), lr=Config.LR, betas=(0.9, 0.99), eps=1e-08, weight_decay=0),
-    torch.optim.RMSprop(net.parameters(), lr=Config.LR, alpha=0.9, eps=1e-08, weight_decay=Config.WEIGHT_DECAY, momentum=Config.MOMENTUM)
+    torch.optim.SGD(net.parameters(), lr=Config.LR, momentum=Config.MOMENTUM),
+    torch.optim.Adam(net.parameters(), lr=Config.LR, betas=(0.9, 0.99)),
+    torch.optim.RMSprop(net.parameters(), lr=Config.LR, alpha=0.9)
 ]
 optimizer = optimizers[selected_optimizers.index(Config.OPTIMIZER)]
 
-arm_criterion = RefineMultiBoxLoss(threshold=0.5, neg_ratio_to_pos=3, arm_filter_socre=0.05, is_solve_odm=False)
-odm_criterion = RefineMultiBoxLoss(threshold=0.5, neg_ratio_to_pos=3, arm_filter_socre=0.05, is_solve_odm=True)
+arm_criterion = RefineMultiBoxLoss(threshold=0.5, neg_ratio_to_pos=2, arm_filter_socre=0.05, is_solve_odm=False)
+odm_criterion = RefineMultiBoxLoss(threshold=0.5, neg_ratio_to_pos=2, arm_filter_socre=0.05, is_solve_odm=True)
 priorboxes = PriorBox(Config.CFG)
 priors = priorboxes.forward()
 
@@ -175,6 +174,7 @@ def train():
         data.DataLoader(test_dataset, Config.TEST_BATCH_SIZE,
                         shuffle=True, num_workers=0, pin_memory=True, collate_fn=detection_collate))
     epoch_loss = torch.zeros(2)  # arm_loss, odm_loss
+
     for iteration in range(star_iter, max_iter):
 
         try:
@@ -203,10 +203,25 @@ def train():
         img = img.to(device)
         gt = [gt_i.to(device) for gt_i in gt]
 
+        if Config.IS_DEBUG:
+            true_bboxes = torch.clone(gt[0])
+            true_bboxes = get_absolute_bboxes(true_bboxes, (512, 512), (512, 512))
+            img_ = draw_bboxes(
+                get_img_from_input(img[0], Config.PRIOR_MEAN_STD['mean'], Config.PRIOR_MEAN_STD['std']), true_bboxes)
+            img_path = op.join(
+                'Debug', repr(iteration) + '_' + op.basename(img_name[0]).split('.')[0] + Config.IMG_FORMAT)
+            cv2.imwrite(img_path, img_)
+
+        if Config.IS_DEBUG:
+            print("Train_____________")
+            print(gt[0])
+            print(img_name[0])
+
         # forward
         t0 = time.time()
         output = net(img)
         # backward
+
         optimizer.zero_grad()
         # arm branch loss
         arm_loss_l, arm_loss_c = arm_criterion(output, priors, gt)
@@ -216,12 +231,14 @@ def train():
         odm_loss = odm_loss_l + odm_loss_c
         epoch_loss += torch.as_tensor([arm_loss, odm_loss])
         loss = arm_loss + odm_loss
+        if Config.IS_DEBUG:
+            print(loss)
         loss.backward()
         optimizer.step()
         t1 = time.time()
         if iteration % Config.MODEL_LOG_ITERATION_FREQUENCY == 0:
             writer.add_scalars('iter/train_loss/arm_loc_conf', {'arm_loc': arm_loss_l, 'arm_conf': arm_loss_c}, iteration)
-            writer.add_scalars('iter/train_loss/odm_loc_conf', {'odm_loc': odm_loss_l, 'arm_conf': odm_loss_c}, iteration)
+            writer.add_scalars('iter/train_loss/odm_loc_conf', {'odm_loc': odm_loss_l, 'odm_conf': odm_loss_c}, iteration)
             writer.add_scalars('iter/train_loss/arm_odm', {'arm_loss': arm_loss, 'odm_loss': odm_loss}, iteration)
             writer.add_scalar('iter/train_loss/loss_sum', loss, iteration)
 
@@ -230,17 +247,19 @@ def train():
             net.eval()
             try:
                 img_test, gt_test, img_src_test, img_name_test, bboxes_src_test = next(test_batch_iterator)
-                # img_ = draw_bboxes(img_test[0].permute(1, 2, 0)[:, :, (2, 1, 0)], None)
-                # plt.imshow(img_)
-                # plt.show()
             except StopIteration:
                 test_batch_iterator = iter(
                     data.DataLoader(test_dataset, Config.TEST_BATCH_SIZE,
                                     shuffle=True, num_workers=0, pin_memory=True, collate_fn=detection_collate))
                 img_test, gt_test, img_src_test, img_name_test, bboxes_src_test = next(test_batch_iterator)
+
             img_test = img_test.to(device)
             gt_test = [gt_test_i.to(device) for gt_test_i in gt_test]
 
+            if Config.IS_DEBUG:
+                print("Test_______________")
+                print(gt_test[0])
+                print(img_name_test[0])
             # forward
             t0_test = time.time()
             output_test = net(img_test)
@@ -271,18 +290,18 @@ def train():
                     get_img_from_input(img[i], Config.PRIOR_MEAN_STD['mean'], Config.PRIOR_MEAN_STD['std']), true_bboxes)
                 img_path = op.join(
                     Config.RESULTS_LOG_PATH, 'train',
-                    op.basename(img_name[i]).split('.')[0] + '_' + repr(iteration) + Config.IMG_FORMAT)
+                    repr(iteration) + '_' + op.basename(img_name[i]).split('.')[0] + Config.IMG_FORMAT)
                 cv2.imwrite(img_path, img_)
             # deal with test image
             index = random.sample(range(len(predictions_test)), k=max(1, int(0.5 * len(predictions_test))))
             for i in index:
                 # return [score, classID, l, t, r, b] with img_size
                 img_size = (img_src_test[i].shape[1], img_src_test[i].shape[0])
-                true_bboxes = get_absolute_bboxes(predictions_test[i], img_size, Config.INPUT_SIZE)
-                img_ = draw_bboxes(img_src_test[i], true_bboxes)
+                true_bboxes = get_absolute_bboxes(predictions_test[i], Config.INPUT_SIZE, Config.INPUT_SIZE)
+                img_ = draw_bboxes(get_img_from_input(img_test[i], Config.PRIOR_MEAN_STD['mean'], Config.PRIOR_MEAN_STD['std']), true_bboxes)
                 img_path = op.join(
                     Config.RESULTS_LOG_PATH, 'test',
-                    op.basename(img_name_test[i]).split('.')[0] + '_' + repr(iteration) + Config.IMG_FORMAT)
+                    repr(iteration) + '_' + op.basename(img_name_test[i]).split('.')[0] + Config.IMG_FORMAT)
                 cv2.imwrite(img_path, img_)
             net.train()
 
