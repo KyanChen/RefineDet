@@ -4,7 +4,7 @@ import Config
 from math import sqrt as sqrt
 
 
-class PriorBox(object):
+class PriorBox(torch.nn.Module):
     """Compute priorbox coordinates in center-offset form for each source feature map.
         Note:
         This 'layer' has changed between versions of the original SSD

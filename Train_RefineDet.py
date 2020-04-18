@@ -13,7 +13,7 @@ import Config
 import torch.utils.data as data
 from utils.SSDDataset import SSDDataset
 from utils.Augmentations import SSDAugmentations
-from nets.RefineDet_TS import build_refinedet
+from nets.RefineDet import build_refinedet
 from nets.layers.RefineMultiBoxLoss import RefineMultiBoxLoss
 from nets.layers.PriorBox import PriorBox
 from utils.TestNet import test_batch
@@ -170,10 +170,10 @@ def train():
     '''
     batch_iterator = iter(
         data.DataLoader(train_dataset, Config.BATCH_SIZE,
-                        shuffle=True, num_workers=0, pin_memory=True, collate_fn=detection_collate))
+                        shuffle=False, num_workers=0, pin_memory=True, collate_fn=detection_collate))
     test_batch_iterator = iter(
         data.DataLoader(test_dataset, Config.TEST_BATCH_SIZE,
-                        shuffle=True, num_workers=0, pin_memory=True, collate_fn=detection_collate))
+                        shuffle=False, num_workers=0, pin_memory=True, collate_fn=detection_collate))
     epoch_loss = torch.zeros(2)  # arm_loss, odm_loss
 
     for iteration in range(star_iter, max_iter):
@@ -199,7 +199,7 @@ def train():
 
             batch_iterator = iter(
                 data.DataLoader(train_dataset, Config.BATCH_SIZE,
-                                shuffle=True, num_workers=0, pin_memory=True, collate_fn=detection_collate))
+                                shuffle=False, num_workers=0, pin_memory=True, collate_fn=detection_collate))
             img, gt, img_src, img_name, bboxes_src = next(batch_iterator)
         img = img.to(device)
         gt = [gt_i.to(device) for gt_i in gt]
@@ -244,14 +244,14 @@ def train():
             writer.add_scalar('iter/train_loss/loss_sum', loss, iteration)
 
         # test model
-        if iteration % Config.MODEL_TEST_ITERATION_FREQUENCY == 0:
+        if iteration % Config.MODEL_TEST_ITERATION_FREQUENCY == 0 and iteration > Config.MODEL_TEST_ITERATION_FREQUENCY * 5:
             net.eval()
             try:
                 img_test, gt_test, img_src_test, img_name_test, bboxes_src_test = next(test_batch_iterator)
             except StopIteration:
                 test_batch_iterator = iter(
                     data.DataLoader(test_dataset, Config.TEST_BATCH_SIZE,
-                                    shuffle=True, num_workers=0, pin_memory=True, collate_fn=detection_collate))
+                                    shuffle=False, num_workers=0, pin_memory=True, collate_fn=detection_collate))
                 img_test, gt_test, img_src_test, img_name_test, bboxes_src_test = next(test_batch_iterator)
 
             img_test = img_test.to(device)

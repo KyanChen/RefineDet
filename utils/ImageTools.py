@@ -14,6 +14,7 @@ def get_absolute_bboxes(boxes, real_size=Config.INPUT_SIZE):
         offset = 0
         if len(boxes[0]) == 6:
             offset = 1
+        boxes[:, 1 + offset::] = boxes[:, 1 + offset::].clip(min=0, max=1)
         boxes[:, 1+offset::2] = boxes[:, 1+offset::2] * real_size[0]
         boxes[:, 1+offset+1::2] = boxes[:, 1+offset+1::2] * real_size[1]
     return boxes

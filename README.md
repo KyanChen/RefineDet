@@ -19,7 +19,8 @@ It is developed by myself!
 4. Test_Jpg_Txt:测试小图，生成测试的bbox信息到txt中
 
 # 训练修改
-1. Config文件内容
+1. 修改Config文件内容
+2. 使用tools工具集获取必要的参数
 2. utils/Augmentation中所需的增广内容
 
 # Version: v1.1

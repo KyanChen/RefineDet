@@ -39,7 +39,7 @@ def decode_output(output, priors, obj_score=0.015, is_refine=True):
     return boxes, scores
 
 
-def test_batch(output, priors, is_refine=True):
+def test_batch(output, priors, is_refine=True, threshold=0.5):
     # output shape: (arm_l, arm_c, odm_l, odm_c)
     # arm_l shape:batch * numpriors * 4
     # priors shape: numpriors * 4
@@ -65,7 +65,7 @@ def test_batch(output, priors, is_refine=True):
             obj_index_each_class = class_id == obj
             boxes_single_to_nms = boxes_single[obj_index_each_class]
             scores_single_to_nms = scores_single[obj_index_each_class]
-            reserve_index = nms(boxes_single_to_nms, scores_single_to_nms, threshold=0.4)
+            reserve_index = nms(boxes_single_to_nms, scores_single_to_nms, threshold=threshold)
             predict_single += [np.concatenate((scores_single_to_nms[reserve_index].reshape(-1, 1),
                                                obj.repeat(len(reserve_index)).reshape(-1, 1),
                                                boxes_single_to_nms[reserve_index].reshape(-1, 4)), axis=1)]

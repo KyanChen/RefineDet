@@ -39,6 +39,7 @@ class RefineMultiBoxLoss(nn.Module):
         self.num_classes = len(Config.CLASSES) if self.is_solve_odm else 2
         # 如果是-1， 采用Focal_loss
         self.neg_ratio_to_pos = neg_ratio_to_pos
+        self.focal_loss = FocalLoss(num_classes=self.num_classes, reduction='mean')
 
     def forward(self, predict_data, priors, targets):
         """Multibox Loss
@@ -110,11 +111,16 @@ class RefineMultiBoxLoss(nn.Module):
         loc_predict = loc_data[pos_index].view(-1, 4)
         # gt offsets
         loc_gt = encode_loc[pos_index].view(-1, 4)
-        loss_l = F.smooth_l1_loss(loc_predict, loc_gt, reduction='mean')
+
+        # 注意用mean时，输入不能为空[]
+        if len(loc_gt) == 0:
+            loss_l = 0
+        else:
+            loss_l = F.smooth_l1_loss(loc_predict, loc_gt, reduction='mean')
 
         # -1 就采用focal_loss
         if self.neg_ratio_to_pos == -1:
-            loss_c = FocalLoss(reduction='mean')(conf_data, encode_conf)
+            loss_c = self.focal_loss(conf_data, encode_conf)
         else:
             # Compute max conf across batch for hard negative mining
             # 针对所有batch的confidence，按照置信度误差进行降序排列，取出前top_k个负样本。
@@ -156,6 +162,7 @@ class RefineMultiBoxLoss(nn.Module):
             conf_target = encode_conf[(obj_pos + neg).gt(0)].long()
             # 计算conf交叉熵
             loss_c = F.cross_entropy(conf_p, conf_target, reduction='mean')
+
         return loss_l, loss_c
 
 
