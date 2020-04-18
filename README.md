@@ -1,4 +1,11 @@
 # RefineDet
+`
+CopyRight:KeyanChen
+Version: v1.1   
+Date: 20200417    
+`
+
+
 RefineDet Detection Network Based On Pytroch. 
 
 It involves SSD.   
@@ -14,3 +21,7 @@ It is developed by myself!
 # 训练修改
 1. Config文件内容
 2. utils/Augmentation中所需的增广内容
+
+# Version: v1.1
+1. 加入Tiny_Scale_Net，具体的在basenet上增加了一个128的检测头，存在于nets/RefineDet_TS中
+2. 加入Focal_loss，存在于nets/layers/Focal_Loss中

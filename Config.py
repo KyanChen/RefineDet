@@ -29,7 +29,7 @@ TEST_BATCH_SIZE = 2
 # 0 : 2 267 -131 495 97
 # 1 : (399, 20),(478, 82),4
 # 2 : single wrong class 0 1 3 6
-ANNO_MODEL = 0
+ANNO_MODE = 0
 
 
 # 图像的尺寸和网络尺寸是否接近，若不接近则在图上进行切割，如果接近随机切割
@@ -42,12 +42,25 @@ IS_BBOX_SCALE_VARY_MUCH = False
 # 打印调试信息
 IS_DEBUG = False
 
-# net
+# noraml_net
+
+'''
 CFG = {
     'feature_maps': [64, 32, 16, 8],
     'min_sizes': [25, 162, 298, 435],
     'max_sizes': [162, 298, 435, 571],
     'aspect_ratios': [[1.5, 2, 2.5], [1.5, 2, 2.5], [1.5, 2.5], [1.5, 2.5]],
+    'clip': True,
+    'variances': [0.1, 0.2]
+}
+'''
+
+# TS_Net
+CFG = {
+    'feature_maps': [128, 64, 32, 16, 8],
+    'min_sizes': [5, 115, 225, 335, 445],
+    'max_sizes': [115, 225, 335, 445, 555],
+    'aspect_ratios': [[1.3], [1.3, 1.6], [1.3, 1.6], [1.3, 1.6], [1.3, 1.6]],
     'clip': True,
     'variances': [0.1, 0.2]
 }

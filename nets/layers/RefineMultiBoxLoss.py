@@ -4,6 +4,7 @@ import torch.nn.functional as F
 
 import Config
 from utils.BoxUtils import refine_match, log_sum_exp
+from nets.layers.Focal_Loss import FocalLoss
 
 
 class RefineMultiBoxLoss(nn.Module):
@@ -29,14 +30,14 @@ class RefineMultiBoxLoss(nn.Module):
             N: number of matched default boxes
         See: https://arxiv.org/pdf/1512.02325.pdf for more details.
         """
-    def __init__(self, threshold=0.5, neg_ratio_to_pos=3, arm_filter_socre=0.05, is_solve_odm=False):
+    def __init__(self, threshold=0.5, neg_ratio_to_pos=-1, arm_filter_socre=0.05, is_solve_odm=False):
         super(RefineMultiBoxLoss, self).__init__()
         self.is_solve_odm = is_solve_odm
         self.threshold = threshold
         self.variance = Config.CFG['variances']
-        self.device = Config.DEVICE
         self.arm_filter_score = arm_filter_socre
         self.num_classes = len(Config.CLASSES) if self.is_solve_odm else 2
+        # 如果是-1， 采用Focal_loss
         self.neg_ratio_to_pos = neg_ratio_to_pos
 
     def forward(self, predict_data, priors, targets):
@@ -81,10 +82,8 @@ class RefineMultiBoxLoss(nn.Module):
                 refine_match(threshold=self.threshold, truths=truths, priors=defaults,
                              variances=self.variance, labels=labels, encode_loc=encode_loc,
                              encode_conf=encode_conf, idx=idx, arm_loc=None)
-        if torch.cuda.is_available() and self.device == 'gpu':
-            device = torch.device('cuda')
-            encode_loc = encode_loc.to(device)
-            encode_conf = encode_conf.to(device)
+        encode_loc = encode_loc.to(loc_data.device)
+        encode_conf = encode_conf.to(loc_data.device)
         encode_loc.requires_grad = False
         encode_conf.requires_grad = False
 
@@ -111,52 +110,52 @@ class RefineMultiBoxLoss(nn.Module):
         loc_predict = loc_data[pos_index].view(-1, 4)
         # gt offsets
         loc_gt = encode_loc[pos_index].view(-1, 4)
-        loss_l = F.smooth_l1_loss(loc_predict, loc_gt, reduction='sum')
+        loss_l = F.smooth_l1_loss(loc_predict, loc_gt, reduction='mean')
 
-        # Compute max conf across batch for hard negative mining
-        # 针对所有batch的confidence，按照置信度误差进行降序排列，取出前top_k个负样本。
-        # shape[b * M, num_classes]
-        batch_conf = conf_data.view(-1, self.num_classes)
-        # 使用logsoftmax，计算置信度,shape[b*M, 1]
-        # 置信度误差越大，实际上就是预测背景的置信度越小。
-        # 把所有conf进行logsoftmax处理(均为负值)，预测的置信度越小，
-        # 则logsoftmax越小，取绝对值，则|logsoftmax|越大，
-        # 降序排列-logsoftmax，取前 top_k 的负样本。
-        conf_logP = log_sum_exp(batch_conf) - batch_conf.gather(1, index=encode_conf.long().view(-1, 1))
+        # -1 就采用focal_loss
+        if self.neg_ratio_to_pos == -1:
+            loss_c = FocalLoss(reduction='mean')(conf_data, encode_conf)
+        else:
+            # Compute max conf across batch for hard negative mining
+            # 针对所有batch的confidence，按照置信度误差进行降序排列，取出前top_k个负样本。
+            # shape[b * M, num_classes]
+            batch_conf = conf_data.view(-1, self.num_classes)
+            # 使用logsoftmax，计算置信度,shape[b*M, 1]
+            # 置信度误差越大，实际上就是预测背景的置信度越小。
+            # 把所有conf进行logsoftmax处理(均为负值)，预测的置信度越小，
+            # 则logsoftmax越小，取绝对值，则|logsoftmax|越大，
+            # 降序排列-logsoftmax，取前 top_k 的负样本。
+            conf_logP = log_sum_exp(batch_conf) - batch_conf.gather(1, index=encode_conf.long().view(-1, 1))
 
-        # hard Negative Mining
-        # shape[b, M]
-        conf_logP = conf_logP.view(batch_size, -1)
-        # 把正样本排除，剩下的就全是负样本，可以进行抽样
-        conf_logP[obj_pos] = 0
-        # 两次sort排序，能够得到每个元素在降序排列中的位置idx_rank
-        # descending 表示降序
-        _, index = conf_logP.sort(1, descending=True)
-        _, index_rank = index.sort(1)
+            # hard Negative Mining
+            # shape[b, M]
+            conf_logP = conf_logP.view(batch_size, -1)
+            # 把正样本排除，剩下的就全是负样本，可以进行抽样
+            conf_logP[obj_pos] = 0
+            # 两次sort排序，能够得到每个元素在降序排列中的位置idx_rank
+            # descending 表示降序
+            _, index = conf_logP.sort(1, descending=True)
+            _, index_rank = index.sort(1)
 
-        # 抽取负样本
-        # 每个batch中正样本的数目，shape[b,1]
-        num_pos = obj_pos.long().sum(1, keepdim=True)
+            # 抽取负样本
+            # 每个batch中正样本的数目，shape[b,1]
+            num_pos = obj_pos.long().sum(1, keepdim=True)
 
-        # 如果改图无正样本，则选3个负样本
-        num_neg = torch.clamp(self.neg_ratio_to_pos*num_pos, min=1, max=obj_pos.size(1)-1)
-        # 抽取前top_k个负样本，shape[b, M]
-        neg = index_rank < num_neg.expand_as(index_rank)
+            # 如果改图无正样本，则选3个负样本
+            num_neg = torch.clamp(self.neg_ratio_to_pos*num_pos, min=1, max=obj_pos.size(1)-1)
+            # 抽取前top_k个负样本，shape[b, M]
+            neg = index_rank < num_neg.expand_as(index_rank)
 
-        # shape[b,M] --> shape[b,M,num_classes]
-        pos_idx = obj_pos.unsqueeze(2).expand_as(conf_data)
-        neg_idx = neg.unsqueeze(2).expand_as(conf_data)
+            # shape[b,M] --> shape[b,M,num_classes]
+            pos_idx = obj_pos.unsqueeze(2).expand_as(conf_data)
+            neg_idx = neg.unsqueeze(2).expand_as(conf_data)
 
-        # 提取出所有筛选好的正负样本(预测的和真实的)
-        # gt函数比较a中元素大于（这里是严格大于）b中对应元素，大于则为1，不大于则为0
-        conf_p = conf_data[(pos_idx + neg_idx).gt(0)].view(-1, self.num_classes)
-        conf_target = encode_conf[(obj_pos + neg).gt(0)].long()
-        # 计算conf交叉熵
-        loss_c = F.cross_entropy(conf_p, conf_target, reduction='sum')
-        # 正样本个数
-        N = conf_target.size(0)
-        loss_l /= N
-        loss_c /= N
+            # 提取出所有筛选好的正负样本(预测的和真实的)
+            # gt函数比较a中元素大于（这里是严格大于）b中对应元素，大于则为1，不大于则为0
+            conf_p = conf_data[(pos_idx + neg_idx).gt(0)].view(-1, self.num_classes)
+            conf_target = encode_conf[(obj_pos + neg).gt(0)].long()
+            # 计算conf交叉熵
+            loss_c = F.cross_entropy(conf_p, conf_target, reduction='mean')
         return loss_l, loss_c
 
 

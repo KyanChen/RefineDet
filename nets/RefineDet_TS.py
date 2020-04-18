@@ -6,6 +6,7 @@ from collections import OrderedDict
 import Config
 from .layers.L2Norm import L2Norm
 
+# Tiny_Scale 检测微小目标的网络[128, 64, 32, 16, 8]
 
 # https://github.com/pytorch/vision/blob/master/torchvision/models/vgg.py
 def vgg(in_channel=3, batch_norm=False):
@@ -67,6 +68,7 @@ class RefineSSD(nn.Module):
         # SSD network
         self.base_network = nn.ModuleList(vgg(in_channel=3, batch_norm=False))
         # Layer learns to scale the l2 normalized features from conv4_3
+        self.L2Norm_3_3 = L2Norm(256, 10)
         self.L2Norm_4_3 = L2Norm(512, 10)
         self.L2Norm_5_3 = L2Norm(512, 8)
 
@@ -79,16 +81,18 @@ class RefineSSD(nn.Module):
 
         if self.is_refine:
             self.arm_loc = nn.Sequential(OrderedDict([
-                ('conv1', nn.Conv2d(512, self.numPriorBoxesEachLayer[0] * 4, kernel_size=3, stride=1, padding=1)),
-                ('conv2', nn.Conv2d(512, self.numPriorBoxesEachLayer[1] * 4, kernel_size=3, stride=1, padding=1)),
-                ('conv3', nn.Conv2d(1024, self.numPriorBoxesEachLayer[2] * 4, kernel_size=3, stride=1, padding=1)),
-                ('conv4', nn.Conv2d(512, self.numPriorBoxesEachLayer[3] * 4, kernel_size=3, stride=1, padding=1))
+                ('conv1', nn.Conv2d(256, self.numPriorBoxesEachLayer[0] * 4, kernel_size=3, stride=1, padding=1)),
+                ('conv1', nn.Conv2d(512, self.numPriorBoxesEachLayer[1] * 4, kernel_size=3, stride=1, padding=1)),
+                ('conv2', nn.Conv2d(512, self.numPriorBoxesEachLayer[2] * 4, kernel_size=3, stride=1, padding=1)),
+                ('conv3', nn.Conv2d(1024, self.numPriorBoxesEachLayer[3] * 4, kernel_size=3, stride=1, padding=1)),
+                ('conv4', nn.Conv2d(512, self.numPriorBoxesEachLayer[4] * 4, kernel_size=3, stride=1, padding=1))
             ]))
             self.arm_conf = nn.Sequential(OrderedDict([
-                ('conv1', nn.Conv2d(512, self.numPriorBoxesEachLayer[0] * 2, kernel_size=3, stride=1, padding=1)),
-                ('conv2', nn.Conv2d(512, self.numPriorBoxesEachLayer[1] * 2, kernel_size=3, stride=1, padding=1)),
-                ('conv3', nn.Conv2d(1024, self.numPriorBoxesEachLayer[2] * 2, kernel_size=3, stride=1, padding=1)),
-                ('conv4', nn.Conv2d(512, self.numPriorBoxesEachLayer[3] * 2, kernel_size=3, stride=1, padding=1)),
+                ('conv1', nn.Conv2d(256, self.numPriorBoxesEachLayer[0] * 2, kernel_size=3, stride=1, padding=1)),
+                ('conv1', nn.Conv2d(512, self.numPriorBoxesEachLayer[1] * 2, kernel_size=3, stride=1, padding=1)),
+                ('conv2', nn.Conv2d(512, self.numPriorBoxesEachLayer[2] * 2, kernel_size=3, stride=1, padding=1)),
+                ('conv3', nn.Conv2d(1024, self.numPriorBoxesEachLayer[3] * 2, kernel_size=3, stride=1, padding=1)),
+                ('conv4', nn.Conv2d(512, self.numPriorBoxesEachLayer[4] * 2, kernel_size=3, stride=1, padding=1)),
             ]))
 
         # 有出入
@@ -103,6 +107,11 @@ class RefineSSD(nn.Module):
 
         # trans_layers, correspond with output shape
         self.trans_layers = nn.ModuleList([
+            nn.Sequential(
+                nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=1),
+                nn.SELU(inplace=True),
+                nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=1)
+            ),
             nn.Sequential(
                 nn.Conv2d(512, 256, kernel_size=3, stride=1, padding=1),
                 nn.SELU(inplace=True),
@@ -124,10 +133,15 @@ class RefineSSD(nn.Module):
         self.up_layers = nn.ModuleList([
             nn.ConvTranspose2d(256, 256, kernel_size=2, stride=2, padding=0),
             nn.ConvTranspose2d(256, 256, kernel_size=2, stride=2, padding=0),
+            nn.ConvTranspose2d(256, 256, kernel_size=2, stride=2, padding=0),
             nn.ConvTranspose2d(256, 256, kernel_size=2, stride=2, padding=0)
             ])
         # latent layers, 3 layers is the same
         self.latent_layers = nn.ModuleList([
+            nn.Sequential(
+                nn.SELU(inplace=True),
+                nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=1),
+                nn.SELU(inplace=True)),
             nn.Sequential(
                 nn.SELU(inplace=True),
                 nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=1),
@@ -147,12 +161,14 @@ class RefineSSD(nn.Module):
             nn.Conv2d(256, self.numPriorBoxesEachLayer[1] * 4, kernel_size=3, stride=1, padding=1),
             nn.Conv2d(256, self.numPriorBoxesEachLayer[2] * 4, kernel_size=3, stride=1, padding=1),
             nn.Conv2d(256, self.numPriorBoxesEachLayer[3] * 4, kernel_size=3, stride=1, padding=1),
+            nn.Conv2d(256, self.numPriorBoxesEachLayer[4] * 4, kernel_size=3, stride=1, padding=1),
         ])
         self.odm_conf = nn.ModuleList([
             nn.Conv2d(256, self.numPriorBoxesEachLayer[0] * self.num_classes, kernel_size=3, stride=1, padding=1),
             nn.Conv2d(256, self.numPriorBoxesEachLayer[1] * self.num_classes, kernel_size=3, stride=1, padding=1),
             nn.Conv2d(256, self.numPriorBoxesEachLayer[2] * self.num_classes, kernel_size=3, stride=1, padding=1),
             nn.Conv2d(256, self.numPriorBoxesEachLayer[3] * self.num_classes, kernel_size=3, stride=1, padding=1),
+            nn.Conv2d(256, self.numPriorBoxesEachLayer[4] * self.num_classes, kernel_size=3, stride=1, padding=1),
         ])
 
     def forward(self, x):
@@ -181,8 +197,16 @@ class RefineSSD(nn.Module):
         odm_loc_list = list()
         odm_conf_list = list()
 
+        # apply vgg up to conv3_3 含relu
+        for k in range(16):
+            x = self.base_network[k](x)
+        # 2 maxpooling shape 512/2**2 = 128, [batchsize, 512, 128, 128]
+        # conv3_3上牵出一个arm检测分支
+        s = self.L2Norm_3_3(x)
+        arm_sources.append(s)
+
         # apply vgg up to conv4_3 relu
-        for k in range(23):
+        for k in range(16, 23):
             x = self.base_network[k](x)
         # 3 maxpooling shape 512/2**3 = 64, [batchsize, 512, 64,64]
         # conv4_3上牵出一个arm检测分支
@@ -201,7 +225,7 @@ class RefineSSD(nn.Module):
         for k in range(30, len(self.base_network)):
             x = self.base_network[k](x)
         # 1 maxpooling shape = 16
-        # 1 dilation shape = 16, [batchsize, 1024, 16,16]
+        # 1 dilation shape = 16, [batchsize, 1024, 16, 16]
         # vgg-reduced版本下，全卷积的fc7上牵出一个arm检测分支
         arm_sources.append(x)
 
@@ -211,7 +235,7 @@ class RefineSSD(nn.Module):
         # vgg base后新增的extras后，全卷积的conv6_2上牵出一个arm检测分支，相当于是最后一个conv layer
         arm_sources.append(x)
 
-        # apply multibox head to arm branch, arm分支的cls + loc预测，刚好对应arm_sources新增的4个分支
+        # apply multibox head to arm branch, arm分支的cls + loc预测，刚好对应arm_sources新增的5个分支
         if self.is_refine:
             for (arm_s, arm_l, arm_c) in zip(arm_sources, self.arm_loc, self.arm_conf):
                 # self.arm_loc nsamples*12*featuremapSize

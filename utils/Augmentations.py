@@ -441,7 +441,7 @@ class RandomSampleCrop(object):
 
 
 class RandomMirror(object):
-    def __init__(self, prob=0.3):
+    def __init__(self, prob=0.4):
         self.prob = prob
 
     def __call__(self, img, bboxes=None, labels=None):
@@ -487,8 +487,8 @@ class SSDAugmentations(object):
         self.augment = {'train': Compose([
             ConvertUcharToFloat(),
             ImgDistortion(),
-            # ExpandImg(self.prior_mean_std),
-            # RandomSampleCrop(ratios=[0.8, 1.3]),
+            ExpandImg(self.prior_mean_std),
+            RandomSampleCrop(ratios=[0.8, 1.3]),
             RandomMirror(),
             Resize(self.size),
             ToRelativeCoords(),

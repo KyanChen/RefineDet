@@ -108,7 +108,7 @@ class SSDDataset(data.Dataset):
         img = img_src.copy()
 
         height, width, channels = img_src.shape
-        bboxs_src = self.txt_paraser(txt_name, width, height, mode=Config.ANNO_MODEL)
+        bboxs_src = self.txt_paraser(txt_name, width, height, mode=Config.ANNO_MODE)
         bboxs = bboxs_src.copy()
 
         if self.transform is not None:

@@ -35,11 +35,11 @@ class PriorBox(object):
                 cx = (row + 0.5) / value
                 cy = (col + 0.5) / value
 
-                # aspect_ratio: 1
+                # default: aspect_ratio: 1
                 # rel size: min_size
                 size_k = self.min_sizes[index] / self.img_size
                 prior_boxs += [cx, cy, size_k, size_k]
-                # aspect_ratio: 1
+                # default: aspect_ratio: 1
                 # rel size: sqrt(size_k * size_k+1)
                 if self.max_sizes:
                     size_k_prime = sqrt(self.min_sizes[index] * self.max_sizes[index]) / self.img_size

@@ -5,7 +5,7 @@ import torch
 import Config
 
 
-def get_absolute_bboxes(boxes, absolute_img_size, relative_img_size):
+def get_absolute_bboxes(boxes, real_size=Config.INPUT_SIZE):
     # boxes shape: [M, 6] or
     # boxes shape: [M, 5]
     if len(boxes) == 0:
@@ -14,8 +14,8 @@ def get_absolute_bboxes(boxes, absolute_img_size, relative_img_size):
         offset = 0
         if len(boxes[0]) == 6:
             offset = 1
-        boxes[:, 1+offset::2] = boxes[:, 1+offset::2] * relative_img_size[0] * absolute_img_size[0] / relative_img_size[0]
-        boxes[:, 1+offset+1::2] = boxes[:, 1+offset+1::2] * relative_img_size[1] * absolute_img_size[1] / relative_img_size[1]
+        boxes[:, 1+offset::2] = boxes[:, 1+offset::2] * real_size[0]
+        boxes[:, 1+offset+1::2] = boxes[:, 1+offset+1::2] * real_size[1]
     return boxes
 
 

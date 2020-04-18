@@ -1,9 +1,9 @@
 import numpy as np
 
 import Config
-layers = 4
-minRatio = 0.05
-maxRatio = 0.9
+layers = 5
+minRatio = 0.01
+maxRatio = 0.87
 
 step = (maxRatio - minRatio) / (layers - 1)
 sizes = Config.INPUT_SIZE[0] * np.array([minRatio + i * step for i in range(layers+1)])

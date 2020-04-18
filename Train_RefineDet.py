@@ -13,7 +13,7 @@ import Config
 import torch.utils.data as data
 from utils.SSDDataset import SSDDataset
 from utils.Augmentations import SSDAugmentations
-from nets.RefineDet import build_refinedet
+from nets.RefineDet_TS import build_refinedet
 from nets.layers.RefineMultiBoxLoss import RefineMultiBoxLoss
 from nets.layers.PriorBox import PriorBox
 from utils.TestNet import test_batch
@@ -38,7 +38,7 @@ if not os.path.exists(op.join(Config.RESULTS_LOG_PATH, 'test')):
 
 if Config.IS_TENSORBOARDX:
     writer = SummaryWriter(op.join(Config.RESULTS_LOG_PATH, 'log'))
-net = build_refinedet(Config.INPUT_SIZE, len(Config.CLASSES), True)
+net = build_refinedet(Config.INPUT_SIZE, len(Config.CLASSES), is_refine=True)
 if torch.cuda.device_count() > 1:  # 判断是不是有多个GPU
     print("Let's use", torch.cuda.device_count(), "GPUs!")
     net = torch.nn.DataParallel(net, device_ids=range(torch.cuda.device_count()))
@@ -138,10 +138,11 @@ optimizers = [
 ]
 optimizer = optimizers[selected_optimizers.index(Config.OPTIMIZER)]
 
-arm_criterion = RefineMultiBoxLoss(threshold=0.5, neg_ratio_to_pos=2, arm_filter_socre=0.05, is_solve_odm=False)
-odm_criterion = RefineMultiBoxLoss(threshold=0.5, neg_ratio_to_pos=2, arm_filter_socre=0.05, is_solve_odm=True)
-priorboxes = PriorBox(Config.CFG)
-priors = priorboxes.forward()
+# neg_ratio_to_pos = -1 使用Focal_loss
+arm_criterion = RefineMultiBoxLoss(threshold=0.4, neg_ratio_to_pos=-1, arm_filter_socre=0.03, is_solve_odm=False)
+odm_criterion = RefineMultiBoxLoss(threshold=0.4, neg_ratio_to_pos=-1, arm_filter_socre=0.05, is_solve_odm=True)
+priors = PriorBox(Config.CFG)()
+# priors = priorboxes.forward()
 
 
 def train():
@@ -284,8 +285,8 @@ def train():
             # deal with train image
             index = random.sample(range(len(predictions)), k=max(1, int(0.5 * len(predictions))))
             for i in index:
-                # return [score, classID, l, t, r, b] with img_size
-                true_bboxes = get_absolute_bboxes(predictions[i], Config.INPUT_SIZE, Config.INPUT_SIZE)
+                # return [score, classID, l, t, r, b]
+                true_bboxes = get_absolute_bboxes(predictions[i], real_size=Config.INPUT_SIZE)
                 img_ = draw_bboxes(
                     get_img_from_input(img[i], Config.PRIOR_MEAN_STD['mean'], Config.PRIOR_MEAN_STD['std']), true_bboxes)
                 img_path = op.join(
@@ -295,10 +296,9 @@ def train():
             # deal with test image
             index = random.sample(range(len(predictions_test)), k=max(1, int(0.5 * len(predictions_test))))
             for i in index:
-                # return [score, classID, l, t, r, b] with img_size
-                img_size = (img_src_test[i].shape[1], img_src_test[i].shape[0])
-                true_bboxes = get_absolute_bboxes(predictions_test[i], Config.INPUT_SIZE, Config.INPUT_SIZE)
-                img_ = draw_bboxes(get_img_from_input(img_test[i], Config.PRIOR_MEAN_STD['mean'], Config.PRIOR_MEAN_STD['std']), true_bboxes)
+                # return [score, classID, l, t, r, b]
+                true_bboxes = get_absolute_bboxes(predictions_test[i], real_size=img_src_test[i].shape[0:2][::-1])
+                img_ = draw_bboxes(img_src_test[i], true_bboxes)
                 img_path = op.join(
                     Config.RESULTS_LOG_PATH, 'test',
                     repr(iteration) + '_' + op.basename(img_name_test[i]).split('.')[0] + Config.IMG_FORMAT)
