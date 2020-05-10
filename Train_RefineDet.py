@@ -7,13 +7,14 @@ import random
 import time
 from tensorboardX import SummaryWriter
 import cv2
+import numpy as np
 import matplotlib.pyplot as plt
 
 import Config
 import torch.utils.data as data
 from utils.SSDDataset import SSDDataset
 from utils.Augmentations import SSDAugmentations
-from nets.RefineDet import build_refinedet
+from nets.RefineDet_TS import build_refinedet
 from nets.layers.RefineMultiBoxLoss import RefineMultiBoxLoss
 from nets.layers.PriorBox import PriorBox
 from utils.TestNet import test_batch
@@ -68,34 +69,36 @@ if model_info['RESUME_MODEL'] is None or not op.exists(model_info['RESUME_MODEL'
         torch.nn.init.xavier_uniform(param)
 
     def weight_init(m):
-        for key in m.state_dict():
-            if key.split('.')[-1] == 'weight':
-                torch.nn.init.kaiming_normal_(m.state_dict()[key], mode='fan_out')
-                # if 'bn' in key:
-                #     m.state_dict()[key][...] = 1
-            elif key.split('.')[-1] == 'bias':
-                m.state_dict()[key][...] = 0
+        if isinstance(m, torch.nn.Conv2d):
+            n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
+            torch.nn.init.kaiming_normal_(m.weight, mode='fan_out')
+            m.bias.data.normal_(0, 1 / np.sqrt(n))
+        elif isinstance(m, torch.nn.BatchNorm2d):
+            m.weight.data.fill_(1)
+            m.bias.data.zero_()
 
-    base_net_weights = torch.load('nets/model/vgg16.pth', map_location=device)
+
+    base_net_weights = torch.load('nets/model/vgg16_bn.pth', map_location=device)
 
     from collections import OrderedDict
     new_state_dict = OrderedDict()
+    # for k, v in net.base_network.named_parameters():
+
     for k, v in base_net_weights.items():
-        head = k[:9]
-        if head == 'features.':
-            name = k[9:]
-        # 维度不对
-        # elif k.split('.')[1] == '0':
-        #     name = '31.' + k.split('.')[2]
-        # elif k.split('.')[1] == '3':
-        #     name = '33.' + k.split('.')[2]
+        if 'features' in k:
+            if 'weight' in k:
+                name = k[9:]
+            elif 'bias' in k:
+                name = k[9:]
+            else:
+                name = k
         else:
             name = k
         new_state_dict[name] = v
 
     net.base_network.load_state_dict(new_state_dict, strict=False)
     # 将其他两层初始化
-    net.base_network[-4:].apply(weight_init)
+    net.base_network[-6:].apply(weight_init)
 
     print('Initializing weights...')
     # initialize newly added layers' weights with kaiming_normal method
@@ -137,12 +140,12 @@ optimizers = [
     torch.optim.RMSprop(net.parameters(), lr=Config.LR, alpha=0.9)
 ]
 optimizer = optimizers[selected_optimizers.index(Config.OPTIMIZER)]
+scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.7, patience=30, verbose=True, cooldown=30)
 
 # neg_ratio_to_pos = -1 使用Focal_loss
-arm_criterion = RefineMultiBoxLoss(threshold=0.4, neg_ratio_to_pos=-1, arm_filter_socre=0.03, is_solve_odm=False)
-odm_criterion = RefineMultiBoxLoss(threshold=0.4, neg_ratio_to_pos=-1, arm_filter_socre=0.05, is_solve_odm=True)
+arm_criterion = RefineMultiBoxLoss(neg_iou_threshold=0.5, pos_iou_threshold=0.5, neg_ratio_to_pos=-1, arm_filter_socre=0.05, is_solve_odm=False)
+odm_criterion = RefineMultiBoxLoss(neg_iou_threshold=0.5, pos_iou_threshold=0.5, neg_ratio_to_pos=-1, arm_filter_socre=0.05, is_solve_odm=True)
 priors = PriorBox(Config.CFG)()
-# priors = priorboxes.forward()
 
 
 def train():
@@ -175,7 +178,7 @@ def train():
         data.DataLoader(test_dataset, Config.TEST_BATCH_SIZE,
                         shuffle=False, num_workers=0, pin_memory=True, collate_fn=detection_collate))
     epoch_loss = torch.zeros(2)  # arm_loss, odm_loss
-
+    print("Training...")
     for iteration in range(star_iter, max_iter):
 
         try:
@@ -187,11 +190,15 @@ def train():
             writer.add_scalars('epoch/train_loss/arm_odm',
                                {'arm_loss': epoch_loss[0], 'odm_loss': epoch_loss[1]}, current_epoch)
             writer.add_scalar('epoch/train_loss/loss', torch.sum(epoch_loss), current_epoch)
+            scheduler.step(torch.sum(epoch_loss))
+            if optimizer.state_dict()['param_groups'][0]['lr'] < 1e-6:
+                for param_group in optimizer.param_groups:
+                    param_group['lr'] = 1e-6
             epoch_loss = torch.zeros(2)
 
             if current_epoch % Config.MODEL_SAVE_EPOCH_FREQUENCY == 0:
                 model_info = {'RESUME_EPOCH': current_epoch,
-                              'RESUME_MODEL': op.join(Config.MODEL_PATH, 'model_iter_%d.pth' % iteration)}
+                              'RESUME_MODEL': Config.MODEL_PATH + '/model_iter_%d.pth' % iteration}
                 torch.save(net.state_dict(), model_info['RESUME_MODEL'])
                 with open('tools/generate_dep_info/model_info.json', 'w', encoding='utf-8') as f:
                     json.dump(model_info, f)
@@ -242,9 +249,10 @@ def train():
             writer.add_scalars('iter/train_loss/odm_loc_conf', {'odm_loc': odm_loss_l, 'odm_conf': odm_loss_c}, iteration)
             writer.add_scalars('iter/train_loss/arm_odm', {'arm_loss': arm_loss, 'odm_loss': odm_loss}, iteration)
             writer.add_scalar('iter/train_loss/loss_sum', loss, iteration)
+            writer.add_scalar('iter/lr', optimizer.state_dict()['param_groups'][0]['lr'], iteration)
 
         # test model
-        if iteration % Config.MODEL_TEST_ITERATION_FREQUENCY == 0 and iteration > Config.MODEL_TEST_ITERATION_FREQUENCY * 5:
+        if iteration % Config.MODEL_TEST_ITERATION_FREQUENCY == 0 and iteration > Config.MODEL_TEST_ITERATION_FREQUENCY * 1:
             net.eval()
             try:
                 img_test, gt_test, img_src_test, img_name_test, bboxes_src_test = next(test_batch_iterator)
@@ -264,9 +272,9 @@ def train():
             # forward
             t0_test = time.time()
             output_test = net(img_test)
-            predictions_test = test_batch(output_test, priors, is_refine=True)
+            predictions_test = test_batch(output_test, priors, iou_threshold=0.5, score_threshold=0.5, is_refine=True)
             t1_test = time.time()
-            predictions = test_batch(output, priors, is_refine=True)
+            predictions = test_batch(output, priors, iou_threshold=0.5, score_threshold=0.5, is_refine=True)
             arm_loss_l_test, arm_loss_c_test = arm_criterion(output_test, priors, gt_test)
             arm_loss_test = arm_loss_l_test + arm_loss_c_test
             odm_loss_l_test, odm_loss_c_test = odm_criterion(output_test, priors, gt_test)
@@ -275,8 +283,8 @@ def train():
             writer.add_scalars('iter/test_loss/arm_odm', {'arm_loss': arm_loss_test, 'odm_loss': odm_loss_test}, iteration)
             writer.add_scalar('iter/test_loss/loss_sum', loss_test, iteration)
             writer.add_scalars('iter/train_test_loss_sum', {'train_loss': loss, 'test_loss': loss_test}, iteration)
-            string = 'Iter:%d\tTrain\tloss:%.4f  arm_loss:%.4f  odm_loss:%.4f\tfps:%d'\
-                     % (iteration, loss, arm_loss, odm_loss, len(gt) / (t1 - t0))
+            string = 'Iter:%d\tTrain\tloss:%.4f  arm_loss:%.4f  odm_loss:%.4f\tfps:%d\tLR:%.8f\tEpoch:%d'\
+                     % (iteration, loss, arm_loss, odm_loss, len(gt) / (t1 - t0), optimizer.state_dict()['param_groups'][0]['lr'], current_epoch)
             string_test = '\t\t\tTest\tloss:%.4f  arm_loss:%.4f  odm_loss:%.4f\tfps:%d'\
                           % (loss_test, arm_loss_test, odm_loss_test, len(gt_test) / (t1_test - t0_test))
             print(string)
@@ -291,17 +299,23 @@ def train():
                     get_img_from_input(img[i], Config.PRIOR_MEAN_STD['mean'], Config.PRIOR_MEAN_STD['std']), true_bboxes)
                 img_path = op.join(
                     Config.RESULTS_LOG_PATH, 'train',
-                    repr(iteration) + '_' + op.basename(img_name[i]).split('.')[0] + Config.IMG_FORMAT)
+                    repr(iteration) + '_' + op.basename(img_name[i]).split('.')[0] + '.jpg')
                 cv2.imwrite(img_path, img_)
             # deal with test image
             index = random.sample(range(len(predictions_test)), k=max(1, int(0.5 * len(predictions_test))))
             for i in index:
                 # return [score, classID, l, t, r, b]
-                true_bboxes = get_absolute_bboxes(predictions_test[i], real_size=img_src_test[i].shape[0:2][::-1])
-                img_ = draw_bboxes(img_src_test[i], true_bboxes)
+                if Config.IS_SRC_IMG_SIZE_NEAR_NET_SIZE:
+                    true_bboxes = get_absolute_bboxes(predictions_test[i], real_size=img_src_test[i].shape[0:2][::-1])
+                    img_ = draw_bboxes(img_src_test[i], true_bboxes)
+                else:
+                    true_bboxes = get_absolute_bboxes(predictions_test[i], real_size=Config.INPUT_SIZE)
+                    img_ = draw_bboxes(
+                        get_img_from_input(img_test[i], Config.PRIOR_MEAN_STD['mean'], Config.PRIOR_MEAN_STD['std']),
+                        true_bboxes)
                 img_path = op.join(
                     Config.RESULTS_LOG_PATH, 'test',
-                    repr(iteration) + '_' + op.basename(img_name_test[i]).split('.')[0] + Config.IMG_FORMAT)
+                    repr(iteration) + '_' + op.basename(img_name_test[i]).split('.')[0] + '.jpg')
                 cv2.imwrite(img_path, img_)
             net.train()
 

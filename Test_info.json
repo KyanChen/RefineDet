@@ -1,0 +1,7 @@
+{"threshold": 0.5,
+  "scale_factor": 1,
+  "overlap_factor": 0,
+  "model_file": "model\\model_iter_626878.pth",
+  "input_path": "F:\\DataSet\\WKK\\test\\新建文件夹",
+  "output_path": "test_results"
+}

@@ -152,9 +152,9 @@ class ConvertColor(object):
         self.target = target
 
     def __call__(self, img, bboxes=None, labels=None):
-        if self.current is 'BGR' and self.target is 'HSV':
+        if self.current == 'BGR' and self.target == 'HSV':
             cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
-        elif self.current is 'HSV' and self.target is 'BGR':
+        elif self.current == 'HSV' and self.target == 'BGR':
             cv2.cvtColor(img, cv2.COLOR_HSV2BGR)
         else:
             raise NotImplementedError("Convert color fail!")
@@ -334,7 +334,7 @@ class RandomSampleCrop(object):
         ratios = self.ratios.copy()
         # 需要调整两处的crop的w,h
         height, width, _ = img.shape
-        if len(bboxes) is 0:
+        if len(bboxes) == 0:
             if np.random.random() < self.prob and Config.IS_SRC_IMG_SIZE_NEAR_NET_SIZE:
                 return img, bboxes, labels
             while True:
@@ -356,15 +356,15 @@ class RandomSampleCrop(object):
                 return img, bboxes, labels
         if Config.IS_BBOX_SCALE_VARY_MUCH:
             bboxes_max_width = max(bboxes[:, 2] - bboxes[:, 0])
-            bboxes_max_height = min(bboxes[:, 3] - bboxes[:, 1])
+            bboxes_max_height = max(bboxes[:, 3] - bboxes[:, 1])
 
             max_width_ratio = bboxes_max_width / Config.INPUT_SIZE[0]
             max_height_ratio = bboxes_max_height / Config.INPUT_SIZE[1]
             max_ratio = max(max_width_ratio, max_height_ratio)
             if max_ratio > 1:
                 ratios *= max_ratio
-            # if max_ratio < 0.3:
-                # ratios *= 0.8
+            elif max_ratio < 0.1:
+                ratios *= 0.8
         for _ in range(6):
             for _ in range(40):
                 if np.random.random() < self.prob and Config.IS_SRC_IMG_SIZE_NEAR_NET_SIZE:
@@ -448,7 +448,7 @@ class RandomMirror(object):
         _, width, _ = img.shape
         if np.random.random() < self.prob:
             img = img[:, ::-1]
-            if len(bboxes) is not 0:
+            if len(bboxes) != 0:
                 bboxes[:, 0::2] = width - bboxes[:, 2::-2]
         return img, bboxes, labels
 
@@ -488,7 +488,7 @@ class SSDAugmentations(object):
             ConvertUcharToFloat(),
             ImgDistortion(),
             ExpandImg(self.prior_mean_std),
-            RandomSampleCrop(ratios=[0.8, 1.3]),
+            RandomSampleCrop(ratios=[0.9, 1.3]),
             RandomMirror(),
             Resize(self.size),
             ToRelativeCoords(),
@@ -496,7 +496,7 @@ class SSDAugmentations(object):
             # ToAbsoluteCoords()
         ]), 'test': Compose([
             ConvertUcharToFloat(),
-            # RandomSampleCrop(ratios=[0.8, 1.2]),
+            RandomSampleCrop(ratios=[0.9, 1.3]),
             Resize(self.size),
             Normalize(self.prior_mean_std),
             ToRelativeCoords(),

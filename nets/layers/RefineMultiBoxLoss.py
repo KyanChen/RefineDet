@@ -30,16 +30,17 @@ class RefineMultiBoxLoss(nn.Module):
             N: number of matched default boxes
         See: https://arxiv.org/pdf/1512.02325.pdf for more details.
         """
-    def __init__(self, threshold=0.5, neg_ratio_to_pos=-1, arm_filter_socre=0.05, is_solve_odm=False):
+    def __init__(self, neg_iou_threshold=0.5, pos_iou_threshold=0.5, neg_ratio_to_pos=-1, arm_filter_socre=0.05, is_solve_odm=False):
         super(RefineMultiBoxLoss, self).__init__()
         self.is_solve_odm = is_solve_odm
-        self.threshold = threshold
+        self.neg_iou_threshold = neg_iou_threshold
+        self.pos_iou_threshold = pos_iou_threshold
         self.variance = Config.CFG['variances']
         self.arm_filter_score = arm_filter_socre
         self.num_classes = len(Config.CLASSES) if self.is_solve_odm else 2
-        # 如果是-1， 采用Focal_loss
+        # 如果是-1， 采用全部样本的Focal_loss
         self.neg_ratio_to_pos = neg_ratio_to_pos
-        self.focal_loss = FocalLoss(num_classes=self.num_classes, reduction='mean')
+        self.focal_loss = FocalLoss(alpha=1e-1, num_classes=self.num_classes, reduction='mean')
 
     def forward(self, predict_data, priors, targets):
         """Multibox Loss
@@ -75,42 +76,40 @@ class RefineMultiBoxLoss(nn.Module):
             labels = targets[idx][:, 0].detach()
             if self.is_solve_odm:
                 # arm调整后，gt bbox与prior的匹配，其实对应着odm流程，毕竟prior经过arm调整过一次了
-                refine_match(threshold=self.threshold, truths=truths, priors=defaults,
+                refine_match(neg_iou_threshold=self.neg_iou_threshold, pos_iou_threshold=self.pos_iou_threshold,
+                             truths=truths, priors=defaults,
                              variances=self.variance, labels=labels, encode_loc=encode_loc,
                              encode_conf=encode_conf, idx=idx, arm_loc=arm_loc_data[idx].detach())
             else:
                 # 没有arm的帮助，gt bbox与prior的匹配，对应着arm流程
-                refine_match(threshold=self.threshold, truths=truths, priors=defaults,
+                refine_match(neg_iou_threshold=self.neg_iou_threshold, pos_iou_threshold=self.pos_iou_threshold,
+                             truths=truths, priors=defaults,
                              variances=self.variance, labels=labels, encode_loc=encode_loc,
                              encode_conf=encode_conf, idx=idx, arm_loc=None)
         encode_loc = encode_loc.to(loc_data.device)
         encode_conf = encode_conf.to(loc_data.device)
-        encode_loc.requires_grad = False
-        encode_conf.requires_grad = False
 
         # 经过arm后，多了一层筛选
         if self.is_solve_odm:
             # [batch, numpriors, 2]
             arm_conf_data_P = F.softmax(arm_conf_data, dim=2)
             arm_obj_conf = arm_conf_data_P[:, :, 1]
-            # objectness得分太小，可以判定为non-object
-            nobj_pos = arm_obj_conf <= self.arm_filter_score
-
-            # 根据IoU划分的，conf_t = 0 对应bg，否则就是fg
-            obj_pos = encode_conf > 0
-            obj_pos[nobj_pos] = 0
+            # 根据IoU划分的，encode_conf = 0 对应bg，否则就是fg，得到目标的索引
+            index_pos = encode_conf > 0
+            # objectness得分太小，判定为non-object
+            index_pos[arm_obj_conf <= self.arm_filter_score] = 0
         else:
-            encode_conf[encode_conf > 0] = 1
-            obj_pos = encode_conf > 0
+            # 取出有物体的索引
+            index_pos = encode_conf > 0
+            # 把所有默认为物体的框标记为1, 进行二分类
+            encode_conf[index_pos] = 1
 
         # Localization Loss (Smooth L1)
         # Shape: [batch,num_priors,4]
-        # 取出所有正样本对应的index位置
-        pos_index = obj_pos.unsqueeze(obj_pos.dim()).expand_as(loc_data)
         # pred offsets
-        loc_predict = loc_data[pos_index].view(-1, 4)
+        loc_predict = loc_data[index_pos.unsqueeze(index_pos.dim()).expand_as(loc_data)].view(-1, 4)
         # gt offsets
-        loc_gt = encode_loc[pos_index].view(-1, 4)
+        loc_gt = encode_loc[index_pos.unsqueeze(index_pos.dim()).expand_as(loc_data)].view(-1, 4)
 
         # 注意用mean时，输入不能为空[]
         if len(loc_gt) == 0:
@@ -120,49 +119,55 @@ class RefineMultiBoxLoss(nn.Module):
 
         # -1 就采用focal_loss
         if self.neg_ratio_to_pos == -1:
+            # 取出正样本和负样本，去除模糊样本
+            neg_pos_pos = encode_conf > -1
+            encode_conf = encode_conf[neg_pos_pos]
+            conf_data = conf_data[neg_pos_pos, :]
             loss_c = self.focal_loss(conf_data, encode_conf)
         else:
             # Compute max conf across batch for hard negative mining
             # 针对所有batch的confidence，按照置信度误差进行降序排列，取出前top_k个负样本。
             # shape[b * M, num_classes]
-            batch_conf = conf_data.view(-1, self.num_classes)
+            batch_conf = F.softmax(conf_data.view(-1, self.num_classes), dim=1)
             # 使用logsoftmax，计算置信度,shape[b*M, 1]
             # 置信度误差越大，实际上就是预测背景的置信度越小。
             # 把所有conf进行logsoftmax处理(均为负值)，预测的置信度越小，
             # 则logsoftmax越小，取绝对值，则|logsoftmax|越大，
             # 降序排列-logsoftmax，取前 top_k 的负样本。
-            conf_logP = log_sum_exp(batch_conf) - batch_conf.gather(1, index=encode_conf.long().view(-1, 1))
-
+            conf_logP = log_sum_exp(batch_conf) - batch_conf.gather(1, encode_conf.view(-1, 1).long())
             # hard Negative Mining
-            # shape[b, M]
+            # shape[batch, num_priors]
             conf_logP = conf_logP.view(batch_size, -1)
-            # 把正样本排除，剩下的就全是负样本，可以进行抽样
-            conf_logP[obj_pos] = 0
+            # 把正样本和模糊排除，剩下的就全是负样本，可以进行抽样
+            conf_logP[encode_conf > 0] = -1
+            # 排除模糊样本
+            conf_logP[encode_conf < 0] = -1
             # 两次sort排序，能够得到每个元素在降序排列中的位置idx_rank
             # descending 表示降序
             _, index = conf_logP.sort(1, descending=True)
             _, index_rank = index.sort(1)
 
             # 抽取负样本
-            # 每个batch中正样本的数目，shape[b,1]
-            num_pos = obj_pos.long().sum(1, keepdim=True)
+            # 每个batch中正样本的数目，shape[batch,1]
+            num_pos = index_pos.long().sum(1, keepdim=True)
 
-            # 如果改图无正样本，则选3个负样本
-            num_neg = torch.clamp(self.neg_ratio_to_pos*num_pos, min=1, max=obj_pos.size(1)-1)
+            # 如果改图无正样本，则选10个负样本
+            num_neg = torch.clamp(self.neg_ratio_to_pos*num_pos, min=5, max=torch.sum(encode_conf == 0)-1)
             # 抽取前top_k个负样本，shape[b, M]
-            neg = index_rank < num_neg.expand_as(index_rank)
-
+            index_neg = index_rank < num_neg.expand_as(index_rank)
             # shape[b,M] --> shape[b,M,num_classes]
-            pos_idx = obj_pos.unsqueeze(2).expand_as(conf_data)
-            neg_idx = neg.unsqueeze(2).expand_as(conf_data)
+            pos_idx = index_pos.unsqueeze(2).expand_as(conf_data)
+            neg_idx = index_neg.unsqueeze(2).expand_as(conf_data)
 
             # 提取出所有筛选好的正负样本(预测的和真实的)
             # gt函数比较a中元素大于（这里是严格大于）b中对应元素，大于则为1，不大于则为0
             conf_p = conf_data[(pos_idx + neg_idx).gt(0)].view(-1, self.num_classes)
-            conf_target = encode_conf[(obj_pos + neg).gt(0)].long()
+            conf_target = encode_conf[(index_pos + index_neg).gt(0)].long()
             # 计算conf交叉熵
-            loss_c = F.cross_entropy(conf_p, conf_target, reduction='mean')
-
+            loss_c = self.focal_loss(conf_p, conf_target)
+            # loss_c = F.cross_entropy(conf_p, conf_target, reduction='mean')
+        loss_l = loss_l
+        loss_c = loss_c
         return loss_l, loss_c
 
 

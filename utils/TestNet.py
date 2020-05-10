@@ -6,7 +6,7 @@ import numpy as np
 from utils.BoxUtils import decode, pointsToCenter
 
 
-def decode_output(output, priors, obj_score=0.015, is_refine=True):
+def decode_output(output, priors, obj_score_threshold=0.02, is_refine=True):
     if is_refine:
         arm_loc, arm_conf, loc_data, conf_data = [output_i.detach() for output_i in output]
         arm_conf, conf_data = F.softmax(arm_conf, dim=2), F.softmax(conf_data, dim=2)
@@ -18,8 +18,11 @@ def decode_output(output, priors, obj_score=0.015, is_refine=True):
     priors = priors.detach()
     batch_size = loc_data.size(0)
     if is_refine:
-        nobj_index = arm_conf[:, :, 1:] <= obj_score
+        nobj_index = arm_conf[:, :, 1:] <= obj_score_threshold
+        # t = nobj_index[nobj_index < 1]
         conf_data[nobj_index.expand_as(conf_data)] = 0
+        # index = torch.any(conf_data[:, :, 1:] > 0.0, dim=2, keepdim=True)
+        # t = conf_data[index.expand_as(conf_data)]
 
     boxes = torch.zeros_like(loc_data)
     scores = torch.zeros_like(conf_data)
@@ -36,10 +39,11 @@ def decode_output(output, priors, obj_score=0.015, is_refine=True):
         scores[i] = conf_data[i].clone()
     # shape:batch * numpriors * 4
     # shape:batch * numpriors * classes
+    # t = scores.view(-1, 4)[:, 1:][scores.view(-1, 4)[:, 0] < 0.5]
     return boxes, scores
 
 
-def test_batch(output, priors, is_refine=True, threshold=0.5):
+def test_batch(output, priors, is_refine=True, iou_threshold=0.5, score_threshold=0.5):
     # output shape: (arm_l, arm_c, odm_l, odm_c)
     # arm_l shape:batch * numpriors * 4
     # priors shape: numpriors * 4
@@ -47,7 +51,7 @@ def test_batch(output, priors, is_refine=True, threshold=0.5):
     # boxes shape:batch * numpriors * 4
     # scores shape:batch * numpriors * classes
     predictions = []
-    boxes, scores = decode_output(output, priors, obj_score=0.02, is_refine=is_refine)
+    boxes, scores = decode_output(output, priors, obj_score_threshold=0.02, is_refine=is_refine)
     boxes, scores = boxes.cpu().numpy(), scores.cpu().numpy()
     for batch_idx in range(boxes.shape[0]):
         # delete nboj
@@ -59,13 +63,19 @@ def test_batch(output, priors, is_refine=True, threshold=0.5):
         class_id = max_score_index[obj_index]
         # scores_single shape: obj_num
         scores_single = scores[batch_idx, obj_index, class_id]
+        # 处理score阈值
+        obj_index = scores_single > score_threshold
+        scores_single = scores_single[obj_index]
+        class_id = class_id[obj_index]
+        boxes_single = boxes_single[obj_index, :]
+
         predict_single = []
         for obj in set(class_id):
             # return detected each class obj
             obj_index_each_class = class_id == obj
             boxes_single_to_nms = boxes_single[obj_index_each_class]
             scores_single_to_nms = scores_single[obj_index_each_class]
-            reserve_index = nms(boxes_single_to_nms, scores_single_to_nms, threshold=threshold)
+            reserve_index = nms(boxes_single_to_nms, scores_single_to_nms, threshold=iou_threshold)
             predict_single += [np.concatenate((scores_single_to_nms[reserve_index].reshape(-1, 1),
                                                obj.repeat(len(reserve_index)).reshape(-1, 1),
                                                boxes_single_to_nms[reserve_index].reshape(-1, 4)), axis=1)]
@@ -86,7 +96,7 @@ def nms(boxes, scores, threshold=0.5, top_k=200):
     # scores的值降序排列,得到索引
     idx = np.argsort(-scores, axis=0)
     # 取前top_k个进行nms
-    # idx = idx[:top_k]
+    idx = idx[:top_k]
     while idx.size:
         keep_index += [idx[0]]
         # 移除已经保存的index

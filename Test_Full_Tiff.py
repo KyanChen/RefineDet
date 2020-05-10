@@ -281,7 +281,7 @@ class TestFullImg:
                     img_part = torch.from_numpy(img_part).permute(2, 0, 1).unsqueeze_(0)
                     img_part = img_part.to(device)
                     output = net(img_part)
-                    predictions = test_batch(output, priors, is_refine=True)
+                    predictions = test_batch(output, priors, threshold=self.threshold, is_refine=True)
                     # return [score, classID, l, t, r, b] with img_size
                     count, loc_info = self.draw_mask(
                             predictions[0], block.mask_block,

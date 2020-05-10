@@ -15,22 +15,22 @@ def vgg(in_channel=3, batch_norm=False):
                              256, 256, 256, 'CeilModel', 512, 512, 512, 'MaxPool', 512, 512, 512]
     layers = []
     for value in num_kernel_each_layer:
-        if value is 'MaxPool':
+        if value == 'MaxPool':
             layers += [nn.MaxPool2d(kernel_size=2, stride=2)]
-        elif value is 'CeilModel':
+        elif value == 'CeilModel':
             # when True, will use ceil instead of floor to compute the output shape
             layers += [nn.MaxPool2d(kernel_size=2, stride=2, ceil_mode=True)]
         else:
             Conv2d = nn.Conv2d(in_channels=in_channel, out_channels=value, kernel_size=3, padding=1)
             if batch_norm:
-                layers += [Conv2d, nn.BatchNorm2d(value), nn.SELU(inplace=True)]
+                layers += [Conv2d, nn.BatchNorm2d(value), nn.SELU()]
             else:
-                layers += [Conv2d, nn.SELU(inplace=True)]
+                layers += [Conv2d, nn.SELU()]
             in_channel = value
     pool5 = nn.MaxPool2d(kernel_size=2, stride=2, padding=0)
     conv6 = nn.Conv2d(512, 1024, kernel_size=3, padding=3, dilation=3)
     conv7 = nn.Conv2d(1024, 1024, kernel_size=1)
-    layers += [pool5, conv6, nn.SELU(inplace=True), conv7, nn.SELU(inplace=True)]
+    layers += [pool5, conv6, nn.BatchNorm2d(1024), nn.SELU(), conv7, nn.BatchNorm2d(1024), nn.SELU()]
     return layers
 
 
@@ -64,9 +64,13 @@ class RefineSSD(nn.Module):
         self.num_classes = num_classes
         self.is_refine = is_refine
         self.numPriorBoxesEachLayer = getNumPriorBoxesEachLayer()
-
+        self.is_batch_norm = True
+        if self.is_batch_norm:
+            self.offset = [7, 10, 13]
+        else:
+            self.offset = [0, 0, 0]
         # SSD network
-        self.base_network = nn.ModuleList(vgg(in_channel=3, batch_norm=False))
+        self.base_network = nn.ModuleList(vgg(in_channel=3, batch_norm=self.is_batch_norm))
         # Layer learns to scale the l2 normalized features from conv4_3
         self.L2Norm_3_3 = L2Norm(256, 10)
         self.L2Norm_4_3 = L2Norm(512, 10)
@@ -74,9 +78,11 @@ class RefineSSD(nn.Module):
 
         self.extra_layers = nn.Sequential(
             OrderedDict([('conv1', nn.Conv2d(1024, 256, kernel_size=1, stride=1, padding=0)),
-                         ('relu1', nn.SELU(inplace=True)),
+                         ('batch_norm1', nn.BatchNorm2d(256)),
+                         ('relu1', nn.SELU()),
                          ('conv2', nn.Conv2d(256, 512, kernel_size=3, stride=2, padding=1)),
-                         ('relu2', nn.SELU(inplace=True))])
+                         ('batch_norm2', nn.BatchNorm2d(512)),
+                         ('relu2', nn.SELU())])
         )
 
         if self.is_refine:
@@ -98,33 +104,33 @@ class RefineSSD(nn.Module):
         # 有出入
         self.last_layer_trans = nn.Sequential(OrderedDict([
             ('conv1', nn.Conv2d(512, 256, kernel_size=3, stride=1, padding=1)),
-            ('relu1', nn.SELU(inplace=True)),
+            ('relu1', nn.SELU()),
             ('conv2', nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=1)),
-            ('relu2', nn.SELU(inplace=True)),
+            ('relu2', nn.SELU()),
             ('conv3', nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=1)),
-            ('relu4', nn.SELU(inplace=True))
+            ('relu4', nn.SELU())
         ]))
 
         # trans_layers, correspond with output shape
         self.trans_layers = nn.ModuleList([
             nn.Sequential(
                 nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=1),
-                nn.SELU(inplace=True),
+                nn.SELU(),
                 nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=1)
             ),
             nn.Sequential(
                 nn.Conv2d(512, 256, kernel_size=3, stride=1, padding=1),
-                nn.SELU(inplace=True),
+                nn.SELU(),
                 nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=1)
             ),
             nn.Sequential(
                 nn.Conv2d(512, 256, kernel_size=3, stride=1, padding=1),
-                nn.SELU(inplace=True),
+                nn.SELU(),
                 nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=1)
             ),
             nn.Sequential(
                 nn.Conv2d(1024, 256, kernel_size=3, stride=1, padding=1),
-                nn.SELU(inplace=True),
+                nn.SELU(),
                 nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=1)
             )
         ])
@@ -139,21 +145,21 @@ class RefineSSD(nn.Module):
         # latent layers, 3 layers is the same
         self.latent_layers = nn.ModuleList([
             nn.Sequential(
-                nn.SELU(inplace=True),
+                nn.SELU(),
                 nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=1),
-                nn.SELU(inplace=True)),
+                nn.SELU()),
             nn.Sequential(
-                nn.SELU(inplace=True),
+                nn.SELU(),
                 nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=1),
-                nn.SELU(inplace=True)),
+                nn.SELU()),
             nn.Sequential(
-                nn.SELU(inplace=True),
+                nn.SELU(),
                 nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=1),
-                nn.SELU(inplace=True)),
+                nn.SELU()),
             nn.Sequential(
-                nn.SELU(inplace=True),
+                nn.SELU(),
                 nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=1),
-                nn.SELU(inplace=True))
+                nn.SELU())
         ])
 
         self.odm_loc = nn.ModuleList([
@@ -198,7 +204,7 @@ class RefineSSD(nn.Module):
         odm_conf_list = list()
 
         # apply vgg up to conv3_3 含relu
-        for k in range(16):
+        for k in range(16 + self.offset[0]):
             x = self.base_network[k](x)
         # 2 maxpooling shape 512/2**2 = 128, [batchsize, 256, 128, 128]
         # conv3_3上牵出一个arm检测分支
@@ -206,7 +212,7 @@ class RefineSSD(nn.Module):
         arm_sources.append(s)
 
         # apply vgg up to conv4_3 relu
-        for k in range(16, 23):
+        for k in range(16 + self.offset[0], 23 + self.offset[1]):
             x = self.base_network[k](x)
         # 3 maxpooling shape 512/2**3 = 64, [batchsize, 512, 64,64]
         # conv4_3上牵出一个arm检测分支
@@ -214,7 +220,7 @@ class RefineSSD(nn.Module):
         arm_sources.append(s)
 
         # apply vgg up to conv5_3
-        for k in range(23, 30):
+        for k in range(23 + self.offset[1], 30 + self.offset[2]):
             x = self.base_network[k](x)
         # 1 maxpooling shape 64/2 = 32, [batchsize, 512, 32,32]
         # conv5_3上牵出一个arm检测分支
@@ -222,7 +228,7 @@ class RefineSSD(nn.Module):
         arm_sources.append(s)
 
         # apply vgg up to fc7
-        for k in range(30, len(self.base_network)):
+        for k in range(30 + self.offset[2], len(self.base_network)):
             x = self.base_network[k](x)
         # 1 maxpooling shape = 16
         # 1 dilation shape = 16, [batchsize, 1024, 16, 16]

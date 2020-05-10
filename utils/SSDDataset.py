@@ -23,10 +23,12 @@ class SSDDataset(data.Dataset):
         assert pattern in ['train', 'test'], pattern + 'does not exist!'
         self.pattern = pattern
         self.transform = transform
-        data_file = os.path.abspath(r'tools/generate_dep_info/train.csv')
+        data_file = os.path.abspath(
+            os.path.join(r'tools/generate_dep_info', 'train' + Config.CSV_NAME.lstrip('train').lstrip('test') + '.csv'))
         assert os.path.exists(data_file), data_file + ' dose not exist!'
-        if self.pattern is 'test' and os.path.exists(r'tools/generate_dep_info/test.csv'):
-            data_file = r'tools/generate_dep_info/test.csv'
+        if self.pattern == 'test' and os.path.exists(
+                r'tools/generate_dep_info/' + 'test' + Config.CSV_NAME.lstrip('train').lstrip('test') + '.csv'):
+            data_file = r'tools/generate_dep_info/' + 'test' + Config.CSV_NAME.lstrip('train').lstrip('test') + '.csv'
 
         self.data_info = pd.read_csv(data_file, index_col=0)
         self.size = len(self.data_info)
@@ -113,7 +115,7 @@ class SSDDataset(data.Dataset):
 
         if self.transform is not None:
             # no target
-            if bboxs.size is 0:
+            if bboxs.size == 0:
                 img, boxes, labels = self.transform(self.pattern, img, bboxs, bboxs)
             # with target
             else:
@@ -124,7 +126,7 @@ class SSDDataset(data.Dataset):
             # img = img.transpose(2, 0, 1)
             # zip boxes labels
             # boxes is empty, no target
-            if boxes.size is not 0:
+            if boxes.size != 0:
                 bboxs = np.hstack((np.expand_dims(labels, axis=1), boxes))
             else:
                 bboxs = np.zeros((1, 5))

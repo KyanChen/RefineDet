@@ -4,11 +4,14 @@ import cv2
 import numpy as np
 import json
 import tqdm
+import sys
+sys.path.append('../')
+import Config
 
 
 class GetImgMeanStd:
     def __init__(self):
-        self.data_file = os.path.abspath('generate_dep_info/train.csv')
+        self.data_file = 'generate_dep_info/train' + Config.CSV_NAME.lstrip('train').lstrip('test') + '.csv'
         assert os.path.exists(self.data_file), 'train.csv dose not exist!'
         self.data_info = pd.read_csv(self.data_file, index_col=0)
         self.save_path_mean_std_info = 'generate_dep_info'
@@ -18,7 +21,7 @@ class GetImgMeanStd:
     def get_img_mean_std(self):
         means = []
         stds = []
-        bar = tqdm.tqdm(len(self.data_info))
+        bar = tqdm.tqdm(total=len(self.data_info))
         for row in self.data_info.iterrows():
             bar.update(1)
             img_name = row[1]['img']

@@ -26,3 +26,4 @@ It is developed by myself!
 # Version: v1.1
 1. 加入Tiny_Scale_Net，具体的在basenet上增加了一个128的检测头，存在于nets/RefineDet_TS中
 2. 加入Focal_loss，存在于nets/layers/Focal_Loss中
+3. 检测时加入score阈值和非极大值抑制的iou阈值

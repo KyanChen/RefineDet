@@ -76,12 +76,13 @@ def decode(loc, priors, variances):
 
 
 # 先验框匹配
-def refine_match(threshold, truths, priors, variances, labels, encode_loc, encode_conf, idx, arm_loc=None):
+def refine_match(neg_iou_threshold, pos_iou_threshold, truths, priors, variances, labels, encode_loc, encode_conf, idx, arm_loc=None):
     """Match each arm bbox with the ground truth box of the highest jaccard
         overlap, encode the bounding boxes, then return the matched indices
         corresponding to both confidence and location preds.
         Args:
-            threshold: (float) The overlap threshold used when mathing boxes.
+            neg_iou_threshold: (float) The overlap threshold used when mathing boxes.
+            pos_iou_threshold: (float) The overlap threshold used when mathing boxes. 0.3, 0.7; 0.4, 0.5
             truths: (tensor) Ground truth boxes, Shape: [num_obj, num_priors].
             priors: (tensor) Prior boxes from priorbox layers, Shape: [n_priors,4].
             variances: (tensor) Variances corresponding to each prior coord,
@@ -126,9 +127,10 @@ def refine_match(threshold, truths, priors, variances, labels, encode_loc, encod
     else:
         conf = labels[best_truth_index]
         loc = encode(mathes, pointsToCenter(decode_arm), variances)
-    # 把 iou < threshold 的框类别设置为 bg,即为0
-    # label as background
-    conf[best_truth_overlap < threshold] = 0
+    # 把 iou < pos_threshold 的框类别设置为模糊值, 即为-1
+    conf[best_truth_overlap < pos_iou_threshold] = -1
+    # 把 iou < neg_threshold 的框类别设置为 bg, 即为0, 其他的为真实标签
+    conf[best_truth_overlap < neg_iou_threshold] = 0
     encode_loc[idx] = loc  # [num_priors,4] encoded offsets to learn
     encode_conf[idx] = conf  # [num_priors] top class label for each prior
 
