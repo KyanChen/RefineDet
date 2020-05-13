@@ -164,8 +164,8 @@ class RefineMultiBoxLoss(nn.Module):
             conf_p = conf_data[(pos_idx + neg_idx).gt(0)].view(-1, self.num_classes)
             conf_target = encode_conf[(index_pos + index_neg).gt(0)].long()
             # 计算conf交叉熵
-            loss_c = self.focal_loss(conf_p, conf_target)
-            # loss_c = F.cross_entropy(conf_p, conf_target, reduction='mean')
+            # loss_c = self.focal_loss(conf_p, conf_target)
+            loss_c = F.cross_entropy(conf_p, conf_target, reduction='mean')
         loss_l = loss_l
         loss_c = loss_c
         return loss_l, loss_c
